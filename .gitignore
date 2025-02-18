@@ -1,0 +1,6 @@
+venv/
+.env
+project.txt
+copyright.txt
+.DS_Store
+*.csv
