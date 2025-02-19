@@ -1,6 +1,6 @@
 import asyncio
 from aiogram import Bot, Dispatcher
-from config import API_TOKEN, logger, REDIS_PASSWORD
+from config import API_TOKEN, logger
 from handlers import (
     start_handler, check_handler, manual_handler, 
     email_handler, code_handler, confirm_handler, #callback_handler, 
