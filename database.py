@@ -2,10 +2,11 @@
 import aiosqlite
 from config import logger
 from utils.crypto import encrypt_email, decrypt_email
-
-DB_PATH = "./data/pulse.db"  # Используйте реальный путь к вашей базе данных
+import os
+from config import DB_PATH
 
 async def initialize_db():
+    logger.info(f"Абсолютный путь к базе: {os.path.abspath(DB_PATH)}")
     async with aiosqlite.connect(DB_PATH) as db:
         # Создание таблицы Users (если её ещё нет)
         await db.execute('''

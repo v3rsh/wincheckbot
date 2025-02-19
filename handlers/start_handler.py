@@ -7,10 +7,11 @@ from combine.answer import (
     email_fired, email_not_verified
 )
 from combine.reply import verified_keyboard, remove_keyboard, email_keyboard
-from config import logger
+from config import logger, DB_PATH
 from aiogram.filters.command import Command
 from states import Verification
 from aiogram.fsm.context import FSMContext
+import os
 
 router = Router()
 
@@ -21,7 +22,8 @@ async def handle_start(message: types.Message, state: FSMContext):
     now = datetime.now()
     logger.info(f"Пользователь {user_id} отправил команду /start в {now.isoformat()}")
 
-    async with aiosqlite.connect("pulse.db") as db:
+    async with aiosqlite.connect(DB_PATH) as db:
+        logger.info(f"Абсолютный путь к базе: {os.path.abspath(DB_PATH)}")
         try:
             # Проверяем наличие пользователя в базе
             cursor = await db.execute("""

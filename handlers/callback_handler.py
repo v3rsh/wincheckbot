@@ -1,7 +1,7 @@
 # handlers/callback_handler.py
 from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
-from config import logger
+from config import logger, DB_PATH
 from utils.email_sender import send_email
 import aiosqlite
 from datetime import datetime, timedelta
@@ -22,7 +22,7 @@ async def handle_callback(callback_query: types.CallbackQuery):
 
     logger.info(f"Пользователь {user_id} вызвал callback с данными: {data}")
 
-    async with aiosqlite.connect("pulse.db") as db:
+    async with aiosqlite.connect(DB_PATH) as db:
         # Проверяем, есть ли пользователь в базе
         cursor = await db.execute("SELECT Email, Code, Approve, BlockedUntil FROM Users WHERE UserID = ?", (user_id,))
         user = await cursor.fetchone()

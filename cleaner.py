@@ -17,8 +17,7 @@ import aiosqlite
 
 from aiogram import Bot
 from aiogram.enums import ChatMemberStatus
-from config import logger, API_TOKEN
-from database import DB_PATH
+from config import logger, API_TOKEN, DB_PATH
 
 async def main():
     logger.info("=== [cleaner.py] Проверяем права в группах и удаляем unapproved-пользователей ===")

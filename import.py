@@ -16,9 +16,9 @@ import datetime
 from pathlib import Path
 import aiosqlite
 from config import logger, EXCLUDED_EMAILS
-from database import DB_PATH, get_user_email
+from database import get_user_email
 from aiogram import Bot
-from config import API_TOKEN
+from config import API_TOKEN, DB_PATH
 # from states import Verification  # Если нужно
 # from combine.answer import ...
 # from config import ...

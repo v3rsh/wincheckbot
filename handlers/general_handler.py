@@ -6,8 +6,7 @@ from combine.reply import remove_keyboard
 from aiogram.fsm.context import FSMContext
 from utils.invite import generate_and_send_invite
 import aiosqlite
-from config import logger, COMPANY_CHANNEL_ID
-from database import DB_PATH
+from config import logger, COMPANY_CHANNEL_ID, DB_PATH
 
 router = Router()
 

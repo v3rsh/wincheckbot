@@ -1,0 +1,7 @@
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+LOGFILE=/app/logs/cron.log
+
+30 7 * * * python /app/cleaner.py >> $LOGFILE 2>&1
+00 8 * * * python /app/export.py >> $LOGFILE 2>&1
+00 20 * * * python /app/import.py >> $LOGFILE 2>&1

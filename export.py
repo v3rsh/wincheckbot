@@ -15,8 +15,8 @@ import aiosqlite
 import datetime
 from pathlib import Path
 
-from database import DB_PATH, get_user_email
-from config import EXCLUDED_EMAILS, logger
+from database import get_user_email
+from config import EXCLUDED_EMAILS, logger, DB_PATH
 # from config import ENCRYPTION_KEY  # уже используется внутри get_user_email
 # from config import ...
 # Если есть отдельная таблица SyncHistory, можно использовать

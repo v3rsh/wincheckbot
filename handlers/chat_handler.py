@@ -4,8 +4,7 @@ from aiogram import Router
 from aiogram.types import ChatMemberUpdated, ChatMemberAdministrator, ChatMemberMember, ChatMemberOwner
 from aiogram.enums import ChatMemberStatus
 import aiosqlite
-from config import logger
-from database import DB_PATH
+from config import logger, DB_PATH
 
 router = Router()
 

@@ -3,7 +3,7 @@
 import aiosqlite
 from aiogram import Router, types
 from aiogram.filters.command import Command
-from config import logger, COMPANY_CHANNEL_ID
+from config import logger, COMPANY_CHANNEL_ID, DB_PATH
 from combine.reply import remove_keyboard
 from combine.answer import (
     not_registered,
@@ -26,7 +26,7 @@ async def check_status(message: types.Message, state: FSMContext):
     logger.info(f"[check_handler] Пользователь {user_id} вызвал команду /check")
 
     # 1) Ищем пользователя в базе
-    async with aiosqlite.connect("pulse.db") as db:
+    async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("""
             SELECT Approve, WasApproved, InviteCount
             FROM Users
