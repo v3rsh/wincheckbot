@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # --- Сервис бота ---
   bot:
@@ -15,9 +13,7 @@ services:
       - ./import:/app/import       # папка для импортируемых файлов
       - ./export:/app/export       # папка для экспортируемых файлов
       - ./archive:/app/archive     # папка для архивных файлов
-    # ports:
-    #   - "8443:8443"
-    # command: ["python", "main.py"]
+    command: ["python3", "main.py"]
     restart: unless-stopped
 
   # --- Сервис Redis ---

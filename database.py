@@ -3,7 +3,7 @@ import aiosqlite
 from config import logger
 from utils.crypto import encrypt_email, decrypt_email
 
-DB_PATH = "pulse.db"  # Используйте реальный путь к вашей базе данных
+DB_PATH = "./data/pulse.db"  # Используйте реальный путь к вашей базе данных
 
 async def initialize_db():
     async with aiosqlite.connect(DB_PATH) as db:
