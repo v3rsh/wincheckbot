@@ -15,7 +15,7 @@ async def main():
     
     # Инициализация бота и диспетчера
     bot = Bot(token=API_TOKEN)
-    redis = Redis(host='localhost', port=6379, db=5, password=REDIS_PASSWORD)
+    redis = Redis(host='redis', port=6379, db=5, password=REDIS_PASSWORD)
     storage = RedisStorage(redis=redis, key_builder=DefaultKeyBuilder(prefix="pulse_fsm"))    
     dp = Dispatcher(storage=storage)
 

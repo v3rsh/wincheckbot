@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  # --- Сервис бота ---
+  bot:
+    build: .
+    container_name: wincheckbot
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data           # для SQLite-базы (pulse.db)
+      - ./logs:/app/logs           # логи, если пишутся в файлы
+      - ./import:/app/import       # папка для импортируемых файлов
+      - ./export:/app/export       # папка для экспортируемых файлов
+      - ./archive:/app/archive     # папка для архивных файлов
+    # ports:
+    #   - "8443:8443"
+    # command: ["python", "main.py"]
+    restart: unless-stopped
+
+  # --- Сервис Redis ---
+  redis:
+    image: redis:7.4
+    container_name: wincheckbot_redis
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - ./redis_data:/data

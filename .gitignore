@@ -5,3 +5,9 @@ copyright.txt
 .DS_Store
 *.csv
 archive/
+data/
+logs/
+export/
+import/
+*.pyc
+__pycache__/
