@@ -1,6 +1,7 @@
 aiogram==3.7.0
 aiosqlite==0.20.0
 pycryptodome==3.21.0
-python-dotenv==0.19.2
+python-dotenv==1.0.1
 Requests==2.25.1
 redis==5.2.1
+logger==1.4

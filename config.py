@@ -46,11 +46,10 @@ WORK_MAIL = os.getenv("WORK_MAIL")
 UNI_API_KEY = os.getenv("UNI_API_KEY")
 UNI_EMAIL = os.getenv("UNI_EMAIL")
 EXCLUDED_EMAILS = os.getenv("EXCLUDED_EMAILS", "").split(",")
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 
 # Проверка наличия обязательных переменных
-required_env_vars = ["API_TOKEN", "WORK_MAIL", "UNI_API_KEY", "UNI_EMAIL", "COMPANY_CHANNEL_ID", "REDIS_PASSWORD", "ENCRYPTION_KEY"]
+required_env_vars = ["API_TOKEN", "WORK_MAIL", "UNI_API_KEY", "UNI_EMAIL", "COMPANY_CHANNEL_ID", "ENCRYPTION_KEY"]
 missing_vars = [var for var in required_env_vars if not globals().get(var)]
 
 if missing_vars:

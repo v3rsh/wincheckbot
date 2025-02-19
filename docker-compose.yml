@@ -20,8 +20,8 @@ services:
   redis:
     image: redis:7.4
     container_name: wincheckbot_redis
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: ["redis-server", "--protected-mode", "no"]
+    ports:
+      - "6379:6379"
     volumes:
       - ./redis_data:/data
