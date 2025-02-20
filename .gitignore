@@ -3,5 +3,6 @@ project.txt
 copyright.txt
 .DS_Store
 *.csv
+*.db
 *.pyc
 __pycache__/
