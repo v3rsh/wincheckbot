@@ -79,15 +79,6 @@ async def main():
         await db.execute(query, tuple(to_update_ids))
         await db.commit()
 
-        # 4) Запись в History (если есть)
-        # Предположим, есть таблица SyncHistory:
-        # CREATE TABLE IF NOT EXISTS SyncHistory (
-        #     ID INTEGER PRIMARY KEY AUTOINCREMENT,
-        #     SyncType TEXT,  -- 'export' / 'import'
-        #     FileName TEXT,
-        #     RecordCount INTEGER,
-        #     SyncDate DATETIME
-        # );
         await db.execute("""
             INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate)
             VALUES (?, ?, ?, DATETIME('now'))
