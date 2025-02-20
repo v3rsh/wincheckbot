@@ -16,7 +16,9 @@ async def initialize_db():
                 Approve BOOLEAN DEFAULT FALSE,
                 WasApproved BOOLEAN DEFAULT FALSE,
                 InviteCount INTEGER DEFAULT 0,
-                Synced BOOLEAN DEFAULT FALSE
+                Synced BOOLEAN DEFAULT FALSE,
+                Notified BOOLEAN,
+                Banned BOOLEAN DEFAULT FALSE
             )
         ''')
         # Создание таблицы Groups (если её ещё нет)
@@ -24,9 +26,27 @@ async def initialize_db():
             CREATE TABLE IF NOT EXISTS Groups (
                 ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 ChatID INTEGER UNIQUE,
-                Rights BOOLEAN DEFAULT FALSE
+                Title TEXT,
+                Type TEXT,
+                Status TEXT,
+                can_manage_chat BOOLEAN,  
+                can_restrict_members BOOLEAN,  
+                can_promote_members BOOLEAN,  
+                can_invite_users BOOLEAN
             )
         ''')
+        # Создание таблицы Groups (если её ещё нет)
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS SyncHistory (
+                ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                SyncType TEXT,  -- 'export' / 'import'
+                FileName TEXT,
+                RecordCount INTEGER,
+                SyncDate DATETIME,
+                Comment TEXT
+            )
+        ''')    
+
         await db.commit()
     logger.info("База данных инициализирована.")
 
