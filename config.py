@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Флаг тестового режима
-TEST_MODE = True  # Установите False для продакшена
+TEST_MODE = False  # Установите False для продакшена
 
 # Выбор имени файла лога в зависимости от режима
 LOG_FILENAME = 'test.log' if TEST_MODE else 'pulse.log'

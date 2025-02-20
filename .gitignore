@@ -1,14 +1,8 @@
 venv/
-.env
 project.txt
 copyright.txt
 .DS_Store
 *.csv
-archive/
-data/
-logs/
-export/
-import/
 *.pyc
 __pycache__/
 redis_data/
