@@ -5,4 +5,3 @@ copyright.txt
 *.csv
 *.pyc
 __pycache__/
-redis_data/
