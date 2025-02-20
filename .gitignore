@@ -6,3 +6,9 @@ copyright.txt
 *.db
 *.pyc
 __pycache__/
+logs/
+export/
+import/
+data/
+redis_data/
+.env
