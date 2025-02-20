@@ -9,6 +9,7 @@ from config import logger
 from states import Verification
 from aiogram.fsm.context import FSMContext
 from database import set_user_email
+from utils.unban import unban_user
 
 # Импортируем нашу «универсальную» функцию генерации ссылки
 from utils.invite import generate_and_send_invite
@@ -44,6 +45,7 @@ async def handle_code_input(message: types.Message, state: FSMContext):
         await state.set_state(Verification.verified)
         # Очищаем временные данные, связанные с кодом
         await state.update_data(code=None, code_attempts=0, email=None)
+        await unban_user(user_id)
 
         # 3. Отправляем сообщение о том, что код подтверждён
         logger.info(f"[code_handler] user_id={user_id} -> передаём invite_count=0 в generate_and_send_invite")

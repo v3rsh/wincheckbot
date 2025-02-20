@@ -6,7 +6,6 @@ import os
 from config import DB_PATH
 
 async def initialize_db():
-    logger.info(f"Абсолютный путь к базе: {os.path.abspath(DB_PATH)}")
     async with aiosqlite.connect(DB_PATH) as db:
         # Создание таблицы Users (если её ещё нет)
         await db.execute('''
@@ -38,7 +37,7 @@ async def set_user_email(user_id: int, plain_email: str):
     enc_email = encrypt_email(plain_email)  # зашифровываем
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE Users SET Approve = TRUE, WasApproved = TRUE, Email=? WHERE UserID=?",
+            "UPDATE Users SET Approve = TRUE, WasApproved = TRUE, Banned = FALSE, Email=? WHERE UserID=?",
             (enc_email, user_id)
         )
         await db.commit()
