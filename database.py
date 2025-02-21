@@ -1,6 +1,5 @@
 # database.py
 import aiosqlite
-import asyncio
 from config import logger
 from utils.crypto import encrypt_email, decrypt_email
 import os
@@ -77,9 +76,3 @@ async def get_user_email(user_id: int) -> str:
             dec_email = decrypt_email(row[0])
             return dec_email
         return ""
-
-async def main():
-    await initialize_db()
-
-if __name__ == "__main__":
-    asyncio.run(main())
