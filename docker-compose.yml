@@ -1,3 +1,6 @@
+
+x-environment:
+  DOCKER_BUILDKIT: "1"
 services:
   # --- Сервис бота ---
   bot:
