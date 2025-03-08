@@ -1,6 +1,8 @@
+version: "3.9"
 
 x-environment:
   DOCKER_BUILDKIT: "1"
+
 services:
   # --- Сервис бота ---
   bot:
@@ -12,20 +14,39 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data:/app/data           # для SQLite-базы (pulse.db)
-      - ./logs:/app/logs           # логи, если пишутся в файлы
-      - ./import:/app/import       # папка для импортируемых файлов
-      - ./export:/app/export       # папка для экспортируемых файлов
-      - ./archive:/app/archive     # папка для архивных файлов
-    command: ["python3", "main.py"]
+      - ./data:/app/data      # для SQLite (DB_PATH)
+      - ./logs:/app/logs      # логи
+      - ./import:/app/import
+      - ./export:/app/export
+      - ./archive:/app/archive
+    # Команду бота берём из Dockerfile (CMD ["python3", "main.py"]), 
+    # либо можно переопределить:
+    # command: ["python3", "main.py"]
     restart: unless-stopped
 
-  # --- Сервис Redis ---
+  # --- Сервис cron ---
+  cron:
+    build: .
+    container_name: wincheckbot_cron
+    working_dir: /app
+    # env_file подцепим такой же, чтобы cron тоже видел переменные
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./import:/app/import
+      - ./export:/app/export
+      - ./archive:/app/archive
+    # Тут основное отличие: запускаем cron в форграунде 
+    # (иначе контейнер завершится сразу)
+    command: ["cron", "-f"]
+    restart: unless-stopped
+
+  # --- Redis ---
   redis:
     image: redis:7.4
     container_name: wincheckbot_redis
     command: ["redis-server", "--protected-mode", "no"]
-    #ports:
-    #  - "6379:6379"
     volumes:
       - ./redis_data:/data
