@@ -1,4 +1,5 @@
 SHELL=/bin/bash
+BASH_ENV=/etc/environment
 PATH=/usr/local/bin:/usr/bin:/bin
 LOGFILE=/app/logs/cron.log
 

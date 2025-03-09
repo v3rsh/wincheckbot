@@ -31,3 +31,6 @@ RUN chmod 0644 /etc/cron.d/mycron && crontab /etc/cron.d/mycron
 # (если хотим, можем убрать CMD вообще, но оставим для удобства
 #  одиночного запуска образа без docker-compose)
 CMD ["python3", "main.py"]
+
+# В конце Dockerfile
+RUN printenv | grep -v "no_proxy" >> /etc/environment
