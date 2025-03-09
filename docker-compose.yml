@@ -21,7 +21,7 @@ services:
       - ./archive:/app/archive
     # Команду бота берём из Dockerfile (CMD ["python3", "main.py"]), 
     # либо можно переопределить:
-    # command: ["python3", "main.py"]
+    command: ["python3", "main.py"]
     restart: unless-stopped
 
   # --- Сервис cron ---
