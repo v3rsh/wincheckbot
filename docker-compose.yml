@@ -35,6 +35,22 @@ services:
       - ./archive:/app/archive
     restart: unless-stopped
 
+  simulation:
+    build: .
+    container_name: wincheckbot_simulation
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      - ROLE=simulation  # Запускаем simulation.py
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./import:/app/import
+      - ./export:/app/export
+      - ./archive:/app/archive
+    restart: unless-stopped
+    
   redis:
     image: redis:7.4
     container_name: wincheckbot_redis

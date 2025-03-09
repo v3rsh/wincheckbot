@@ -24,5 +24,8 @@ RUN chmod 0644 /etc/cron.d/mycron && crontab /etc/cron.d/mycron
 COPY entrypoint-cron.sh /app/
 RUN chmod +x /app/entrypoint-cron.sh
 
-# Управляем запуском через переменную ROLE
-CMD ["sh", "-c", "if [ \"$ROLE\" = 'cron' ]; then /app/entrypoint-cron.sh; else python3 main.py; fi"]
+# Управляем запуском через переменную ROLE:
+# - ROLE=cron   -> запускаем entrypoint-cron.sh
+# - ROLE=simulation -> запускаем simulation.py
+# - Иначе         -> запускаем main.py (бот)
+CMD ["sh", "-c", "if [ \"$ROLE\" = 'cron' ]; then /app/entrypoint-cron.sh; elif [ \"$ROLE\" = 'simulation' ]; then python3 simulate.py; else python3 main.py; fi"]
