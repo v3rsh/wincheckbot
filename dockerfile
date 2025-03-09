@@ -1,3 +1,4 @@
+# dockerfile
 ARG DEBIAN_FRONTEND=noninteractive
 FROM python:3.10.16-slim-bullseye
 
@@ -20,12 +21,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY entrypoint-cron.sh /app/entrypoint-cron.sh
+# Копируем проект
+COPY . /app
 
 # Делаем скрипт исполняемым
 RUN chmod +x /app/entrypoint-cron.sh
-# Копируем проект
-COPY . /app
 
 # Копируем crontab и регистрируем её в системе
 COPY crontab /etc/cron.d/mycron
