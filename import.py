@@ -3,6 +3,7 @@
 import.py
 Запускается раз в сутки в 20:00
 """
+import os
 import asyncio
 from pathlib import Path
 from config import logger, DB_PATH
@@ -16,6 +17,8 @@ from utils.file_ops import (
 from utils.import_logic import process_unapproved_in_db
 from utils.notify import notify_newly_fired
 import aiosqlite
+
+os.getcwd()
 
 async def compare_with_previous_import(current_user_ids: set[int]) -> bool:
     """

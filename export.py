@@ -8,7 +8,7 @@ export.py
 4) Ставит Synced=TRUE,
 5) Пишет запись в SyncHistory (или лог).
 """
-
+import os
 import asyncio
 import csv
 import aiosqlite
@@ -25,6 +25,7 @@ from config import EXCLUDED_EMAILS, logger, DB_PATH
 # Если есть отдельная таблица SyncHistory, можно использовать
 
 OUTPUT_DIR = "./export"
+os.getcwd()
 
 async def main():
     logger.info("=== [export.py] Начинаем экспорт пользователей для компании ===")
