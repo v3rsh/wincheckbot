@@ -33,7 +33,7 @@ logger.addHandler(console_handler)
 
 
 API_TOKEN = os.getenv("TELEGRAM_API_TOKEN")
-COMPANY_CHANNEL_ID = int(os.getenv("COMPANY_CHANNEL_ID"))
+COMPANY_CHANNEL_ID = (os.getenv("COMPANY_CHANNEL_ID"))
 WORK_MAIL = os.getenv("WORK_MAIL")
 UNI_API_KEY = os.getenv("UNI_API_KEY")
 UNI_EMAIL = os.getenv("UNI_EMAIL")
