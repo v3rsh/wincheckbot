@@ -1,10 +1,6 @@
 version: "3.9"
 
-x-environment:
-  DOCKER_BUILDKIT: "1"
-
 services:
-  # --- Сервис бота ---
   bot:
     build: .
     container_name: wincheckbot
@@ -13,35 +9,32 @@ services:
       - redis
     env_file:
       - .env
+    environment:
+      - ROLE=bot  # Указываем, что это бот
     volumes:
-      - ./data:/app/data      # для SQLite (DB_PATH)
-      - ./logs:/app/logs      # логи
+      - ./data:/app/data
+      - ./logs:/app/logs
       - ./import:/app/import
       - ./export:/app/export
       - ./archive:/app/archive
-    # Команду бота берём из Dockerfile (CMD ["python3", "main.py"]), 
-    # либо можно переопределить:
-    command: ["python3", "main.py"]
     restart: unless-stopped
 
-  # --- Сервис cron ---
   cron:
     build: .
     container_name: wincheckbot_cron
     working_dir: /app
     env_file:
-    - .env
+      - .env
+    environment:
+      - ROLE=cron  # Указываем, что это cron
     volumes:
-    - ./data:/app/data
-    - ./logs:/app/logs
-    - ./import:/app/import
-    - ./export:/app/export
-    - ./archive:/app/archive
-    # Вместо "command: [\"cron\", \"-f\"]":
-    command: ["/app/entrypoint-cron.sh"]
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./import:/app/import
+      - ./export:/app/export
+      - ./archive:/app/archive
     restart: unless-stopped
 
-  # --- Redis ---
   redis:
     image: redis:7.4
     container_name: wincheckbot_redis
