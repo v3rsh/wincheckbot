@@ -7,13 +7,18 @@ import datetime
 import csv
 from pathlib import Path
 import time
+from dotenv import load_dotenv
 
-# Путь к базе данных бота (совпадает с DB_PATH в основном проекте)
-DB_PATH = "./data/pulse.db"
+# Загружаем переменные окружения из .env
+load_dotenv()
 
-# Папки export/import из проекта
-EXPORT_DIR = "./export"
-IMPORT_DIR = "./import"
+# Используем переменные окружения
+DB_PATH = os.getenv("DB_PATH", "./data/winbot.db")
+EXPORT_DIR = os.getenv("EXPORT_DIR", "./export")
+IMPORT_DIR = os.getenv("IMPORT_DIR", "./import")
+
+# Импортируем функцию шифрования email
+from utils.crypto import encrypt_email
 
 # -------------------------
 #   Создадим таблицу Company
@@ -33,10 +38,15 @@ async def ensure_company_table():
 #   Каждую минуту добавляем фейкового пользователя
 # -------------------------
 async def add_fake_user():
-    """Раз в минуту добавляет фейкового пользователя в таблицу Users проекта."""
+    """
+    Раз в минуту добавляет фейкового пользователя в таблицу Users проекта.
+    Email шифруется с использованием encrypt_email.
+    """
     user_id = random.randint(1000000, 9999999)
-    email = f"test_{user_id}@winline.ru"
-
+    plain_email = f"test_{user_id}@winline.ru"
+    # Шифруем email
+    encrypted_email = encrypt_email(plain_email)
+    
     # 80% сразу прошли "верификацию"
     approve = random.random() < 0.8
     was_approved = approve
@@ -45,23 +55,22 @@ async def add_fake_user():
         await db.execute("""
             INSERT INTO Users (UserID, Email, Approve, WasApproved, Synced, Notified, Banned)
             VALUES (?, ?, ?, ?, 0, 0, 0)
-        """, (user_id, email, approve, was_approved))
+        """, (user_id, encrypted_email, approve, was_approved))
         await db.commit()
 
-    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] "
-          f"Added fake user_id={user_id}, approve={approve}")
+    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Added fake user_id={user_id}, approve={approve}")
 
 # -------------------------
 #   Эмулируем "действия компании" раз в 8 минут
 # -------------------------
 async def simulate_company_actions():
     """
-    - Забираем все export_*.csv из ./export,
-    - Заполняем таблицу Company,
-    - Пытаемся уволить (удалить) некую часть сотрудников,
-      но если она > 30%, то НЕ удаляем,
-      а лишь «на экспорт» выдаём (total - n) случайных сотрудников.
-    - Генерируем ./import/active_users_YYYYmmDD.csv
+    - Забираем все export_*.csv из папки EXPORT_DIR,
+    - Обновляем таблицу Company,
+    - Пытаемся уволить (удалить) некую часть сотрудников:
+         Если увольнение (n) не превышает 30% от общего числа, реально удаляем.
+         Если n > 30%, то не меняем таблицу, а для итогового файла выбираем случайную выборку из (total - n).
+    - Формируем файл active_users_YYYYmmDD.csv в папке IMPORT_DIR.
     """
     exports = sorted(Path(EXPORT_DIR).glob("export_*.csv"))
     if not exports:
@@ -79,73 +88,60 @@ async def simulate_company_actions():
                 for row in reader:
                     uid = int(row["UserID"])
                     email = row["Email"]
-                    # Сначала удаляем, если уже есть такой ID (чтобы обновить)
+                    # Обновляем запись: сначала удаляем, если есть, потом вставляем
                     await db.execute("DELETE FROM Company WHERE TelegramID=?", (uid,))
                     await db.execute("""
                         INSERT INTO Company (TelegramID, Email) VALUES (?, ?)
                     """, (uid, email))
-            # При желании можно переименовать/переместить обработанный файл
-            # file.rename(file.with_suffix(".done"))
             print(f"[simulate_company_actions] Processed export file: {file.name}")
-
+            # При необходимости можно переименовать обработанный файл, например:
+            # file.rename(file.with_suffix(".done"))
         await db.commit()
 
-    # Теперь берём всех сотрудников из Company => увольняем некоторую часть
+    # Выбираем всех сотрудников из Company
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("SELECT ID, TelegramID, Email FROM Company")
         all_emps = await cursor.fetchall()
-
         total_count = len(all_emps)
         if total_count == 0:
             print("Company table is empty, nothing to do.")
             return
 
-        # выберем n = random.randint(0, total_count)
+        # Выбираем случайное число n увольняемых сотрудников
         n = random.randint(0, total_count)
         percent = n / total_count
-
-        print(f"[simulate_company_actions] Attempting to fire {n} out of {total_count}"
-              f" ({percent*100:.1f}%)")
+        print(f"[simulate_company_actions] Attempting to fire {n} out of {total_count} ({percent*100:.1f}%)")
 
         if percent <= 0.3:
-            # <= 30%, значит реально удаляем
+            # Если увольняем не более 30%, реально удаляем
             to_fire = random.sample(all_emps, n)
             fired_ids = [x[0] for x in to_fire]
             for fid in fired_ids:
                 await db.execute("DELETE FROM Company WHERE ID=?", (fid,))
             await db.commit()
             print(f"Fired {n} employees from Company (<=30% scenario).")
-
-            # Оставшиеся = все в таблице Company
+            # Оставшиеся сотрудники — те, что в таблице Company
             cursor = await db.execute("SELECT TelegramID FROM Company")
             rows = await cursor.fetchall()
             active_uids = [r[0] for r in rows]
-
         else:
-            # > 30%, трактуем как ошибку, НЕ удаляем.
-            # Но в итоговый файл пойдёт только (total_count - n) случайных
-            # (т. е. будто "HR решил выдать укороченный список")
+            # Если увольняем больше 30%, трактуем это как ошибку HR-системы
+            # и не вносим изменения в таблицу Company.
             keep_count = total_count - n
-            keep_count = max(keep_count, 0)  # на случай если n=total_count
+            keep_count = max(keep_count, 0)
             remain = random.sample(all_emps, keep_count)
-            active_uids = [x[1] for x in remain]  # [TelegramID]
+            active_uids = [x[1] for x in remain]  # Берём TelegramID
+            print(f"[simulate_company_actions] Firing attempt >30%. No changes in DB. Exporting {keep_count} random employees.")
 
-            print(f"[simulate_company_actions] Firing attempt >30%. "
-                  f"No changes in DB. We only export {keep_count} random employees.")
-            # DB не трогаем
-
-    # Сохраняем active_users_YYYYmmDD.csv
+    # Формируем файл импорта active_users_YYYYmmDD.csv
     today = datetime.date.today().strftime("%Y%m%d")
     filename = f"active_users_{today}.csv"
     out_path = Path(IMPORT_DIR) / filename
-
-    # Пишем в CSV
     out_path.parent.mkdir(exist_ok=True, parents=True)
     with out_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f, delimiter=";")
         for uid in active_uids:
             writer.writerow([uid])
-
     print(f"[simulate_company_actions] Wrote {len(active_uids)} records to {out_path}")
 
 # -------------------------
@@ -153,13 +149,12 @@ async def simulate_company_actions():
 # -------------------------
 async def main_loop():
     await ensure_company_table()
-
     minute_counter = 0
     while True:
-        # Каждую минуту добавляем одного пользователя
+        # Каждую минуту добавляем фейкового пользователя
         await add_fake_user()
 
-        # Каждые 8 минут — симуляция «действий компании»
+        # Каждые 8 минут эмулируем действия компании
         if minute_counter % 8 == 0:
             await simulate_company_actions()
 
