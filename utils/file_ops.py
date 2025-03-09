@@ -60,10 +60,6 @@ def archive_import_file(filename: str, success=True):
     logger.info(f"Файл {filename} перемещён в {ARCHIVE_DONE}.")
 
 
-import csv
-from pathlib import Path
-from config import logger, IMPORT_DIR
-
 def parse_csv_users(filename: str) -> set[int]:
     """
     Читает CSV-файл, автоматически определяя разделитель, и собирает уникальные user_id (int) из колонки 'UserID'.
