@@ -14,6 +14,9 @@ import csv
 import aiosqlite
 import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from database import get_user_email
 from config import EXCLUDED_EMAILS, logger, DB_PATH

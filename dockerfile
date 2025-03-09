@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем проект
 COPY . /app
-
+COPY .env /app/.env
 # Делаем скрипт исполняемым
 RUN chmod +x /app/entrypoint-cron.sh
 

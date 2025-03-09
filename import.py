@@ -5,6 +5,9 @@ import.py
 """
 
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 from config import logger, DB_PATH
 from utils.file_ops import (
     is_export_empty,

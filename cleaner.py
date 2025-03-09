@@ -11,8 +11,10 @@ cleaner.py
 """
 import asyncio
 import aiosqlite
-
 from aiogram import Bot
+from dotenv import load_dotenv
+
+load_dotenv()
 from config import logger, API_TOKEN, DB_PATH 
 
 # Импортируем из need_clean.py
