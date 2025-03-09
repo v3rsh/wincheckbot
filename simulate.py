@@ -140,6 +140,7 @@ async def simulate_company_actions():
     out_path.parent.mkdir(exist_ok=True, parents=True)
     with out_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f, delimiter=";")
+        writer.writerow(["UserID"])
         for uid in active_uids:
             writer.writerow([uid])
     print(f"[simulate_company_actions] Wrote {len(active_uids)} records to {out_path}")
