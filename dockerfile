@@ -30,7 +30,8 @@ RUN chmod +x /app/entrypoint-cron.sh
 # Копируем crontab и регистрируем её в системе
 COPY crontab /etc/cron.d/mycron
 RUN chmod 0644 /etc/cron.d/mycron && crontab /etc/cron.d/mycron
-
+COPY entrypoint-cron.sh /app/
+ENTRYPOINT ["/app/entrypoint-cron.sh"]
 # По умолчанию будем запускать бота
 # (если хотим, можем убрать CMD вообще, но оставим для удобства
 #  одиночного запуска образа без docker-compose)
