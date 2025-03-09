@@ -20,6 +20,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY entrypoint-cron.sh /app/entrypoint-cron.sh
+
+# Делаем скрипт исполняемым
+RUN chmod +x /app/entrypoint-cron.sh
 # Копируем проект
 COPY . /app
 
@@ -31,6 +35,3 @@ RUN chmod 0644 /etc/cron.d/mycron && crontab /etc/cron.d/mycron
 # (если хотим, можем убрать CMD вообще, но оставим для удобства
 #  одиночного запуска образа без docker-compose)
 CMD ["python3", "main.py"]
-
-# В конце Dockerfile
-RUN printenv | grep -v "no_proxy" >> /etc/environment

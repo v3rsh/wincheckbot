@@ -29,18 +29,16 @@ services:
     build: .
     container_name: wincheckbot_cron
     working_dir: /app
-    # env_file подцепим такой же, чтобы cron тоже видел переменные
     env_file:
-      - .env
+    - .env
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./import:/app/import
-      - ./export:/app/export
-      - ./archive:/app/archive
-    # Тут основное отличие: запускаем cron в форграунде 
-    # (иначе контейнер завершится сразу)
-    command: ["cron", "-f"]
+    - ./data:/app/data
+    - ./logs:/app/logs
+    - ./import:/app/import
+    - ./export:/app/export
+    - ./archive:/app/archive
+    # Вместо "command: [\"cron\", \"-f\"]":
+    command: ["/app/entrypoint-cron.sh"]
     restart: unless-stopped
 
   # --- Redis ---
