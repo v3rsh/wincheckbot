@@ -25,11 +25,65 @@ from utils.need_clean import (
     get_eligible_groups,
 )
 
+import asyncio
+import aiosqlite
+from pathlib import Path
+from config import logger, DB_PATH
+from utils.file_ops import parse_csv_users  # Функция для чтения user_id из CSV-файла
+
+async def check_import_users_in_db(db: aiosqlite.Connection):
+    """
+    Проверяет, все ли user_id из последнего импорта присутствуют в таблице Users.
+    Возвращает True, если всё в порядке, и False, если есть расхождения.
+    """
+    # 1. Находим имя файла последнего импорта из SyncHistory
+    cursor = await db.execute("""
+        SELECT FileName
+          FROM SyncHistory
+         WHERE SyncType='import'
+      ORDER BY SyncDate DESC
+         LIMIT 1
+    """)
+    row = await cursor.fetchone()
+    if not row:
+        logger.warning("Нет записей об импорте в SyncHistory.")
+        return True  # Если импорта не было, продолжаем работу
+
+    import_filename = row[0]
+    archived_path = Path("./import/archived") / import_filename
+
+    if not archived_path.is_file():
+        logger.error(f"Файл {archived_path} не найден в архиве.")
+        return False
+
+    # 2. Читаем user_id из файла импорта
+    import_user_ids = set(parse_csv_users(str(archived_path)))
+    if not import_user_ids:
+        logger.warning("Не удалось прочитать user_id из файла импорта.")
+        return False
+
+    # 3. Получаем user_id из таблицы Users
+    cursor = await db.execute("SELECT UserID FROM Users")
+    db_user_ids = set(row[0] for row in await cursor.fetchall())
+
+    # 4. Проверяем, все ли user_id из импорта есть в базе
+    missing_ids = import_user_ids - db_user_ids
+    if missing_ids:
+        logger.error(f"В базе отсутствуют user_id из импорта: {missing_ids}")
+        return False
+    else:
+        logger.info("Все user_id из импорта присутствуют в базе.")
+        return True
+
 async def main():
     logger.info("=== [cleaner.py] Запущен сценарий очистки ===")
 
     async with aiosqlite.connect(DB_PATH) as db:
-        # Убедимся, что в таблице SyncHistory есть колонка Comment
+        # Проверяем наличие всех user_id из импорта в базе
+        if not await check_import_users_in_db(db):
+            logger.critical("Обнаружены отсутствующие user_id. Очистка прервана.")
+            return
+        
         await ensure_comment_column(db)
 
         # Проверяем, нужно ли пропускать cleaner.py

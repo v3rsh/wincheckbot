@@ -3,11 +3,8 @@
 import.py
 Запускается раз в сутки в 20:00
 """
-
 import asyncio
-from dotenv import load_dotenv
-
-load_dotenv()
+from pathlib import Path
 from config import logger, DB_PATH
 from utils.file_ops import (
     is_export_empty,
@@ -19,6 +16,44 @@ from utils.file_ops import (
 from utils.import_logic import process_unapproved_in_db
 from utils.notify import notify_newly_fired
 import aiosqlite
+
+async def compare_with_previous_import(current_user_ids: set[int]) -> bool:
+    """
+    Сравнивает текущий список user_id с последним успешным импортом.
+    Возвращает True, если различия допустимы, и False, если они слишком велики.
+    """
+    archived_dir = Path("./import/archived")
+    archived_files = sorted(
+        archived_dir.glob("active_users_*.csv"),
+        key=lambda x: x.stem.split('_')[-1],
+        reverse=True
+    )
+
+    if not archived_files:
+        logger.info("Нет предыдущих файлов для сравнения. Продолжаем.")
+        return True
+
+    last_archived_file = archived_files[0]
+    previous_user_ids = parse_csv_users(str(last_archived_file))
+
+    if not previous_user_ids:
+        logger.warning(f"Не удалось прочитать {last_archived_file}. Продолжаем.")
+        return True
+
+    # Вычисляем различия
+    added = len(current_user_ids - previous_user_ids)
+    removed = len(previous_user_ids - current_user_ids)
+    total_changes = added + removed
+    previous_count = len(previous_user_ids)
+
+    # Порог: 50% изменений
+    if previous_count > 0 and (total_changes / previous_count) > 0.5:
+        logger.error(f"Слишком большие изменения: добавлено {added}, удалено {removed} из {previous_count}.")
+        return False
+    else:
+        logger.info(f"Изменения в норме: добавлено {added}, удалено {removed}.")
+        return True
+
 
 async def main():
     logger.info("=== [import.py] Начинаем обработку файла от компании ===")
@@ -49,6 +84,13 @@ async def main():
 
     logger.info(f"Прочитано {len(user_ids)} актуальных user_id из {in_filename}.")
 
+    # Сравниваем с предыдущим
+    if not await compare_with_previous_import(user_ids):
+        logger.critical("Обнаружены аномальные различия. Обработка прервана.")
+        return
+    # Если все ок, продолжаем
+    logger.info("Обработка продолжается...")
+    
     # 3) Снимаем Approve=TRUE тем, кто не в списке (и не в EXCLUDED_EMAILS)
     changed_users = await process_unapproved_in_db(user_ids, in_filename)
     

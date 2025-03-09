@@ -59,29 +59,56 @@ def archive_import_file(filename: str, success=True):
     shutil.move(src, dst)
     logger.info(f"Файл {filename} перемещён в {ARCHIVE_DONE}.")
 
+
+import csv
+from pathlib import Path
+from config import logger, IMPORT_DIR
+
 def parse_csv_users(filename: str) -> set[int]:
     """
-    Читает CSV (разделитель ';'), собирает уникальные user_id (int).
-    Возвращает пустое множество, если файл пуст или ошибка.
+    Читает CSV-файл, автоматически определяя разделитель, и собирает уникальные user_id (int) из колонки 'UserID'.
+    Возвращает пустое множество, если файл пуст, не найден, или отсутствует колонка 'UserID'.
+
+    Args:
+        filename (str): Имя файла в директории IMPORT_DIR.
+
+    Returns:
+        set[int]: Множество user_id из файла.
     """
-    filepath = os.path.join(IMPORT_DIR, filename)
-    if not os.path.isfile(filepath):
+    filepath = Path(IMPORT_DIR) / filename
+    if not filepath.is_file():
         logger.warning(f"parse_csv_users: файл {filepath} не найден.")
         return set()
 
     user_ids = set()
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            reader = csv.reader(f, delimiter=";")
+        with filepath.open("r", encoding="utf-8") as f:
+            # Читаем первые 1024 байта для анализа разделителя
+            sample = f.read(1024)
+            if not sample:
+                logger.warning(f"Файл {filename} пустой.")
+                return set()
+            f.seek(0)  # Возвращаемся в начало файла
+
+            # Определяем диалект CSV с помощью Sniffer
+            dialect = csv.Sniffer().sniff(sample)
+            delimiter = dialect.delimiter
+            logger.info(f"Определен разделитель: '{delimiter}' для файла {filename}")
+
+            # Читаем файл как словарь с заголовками
+            reader = csv.DictReader(f, delimiter=delimiter)
+            if 'UserID' not in reader.fieldnames:
+                logger.error(f"В файле {filename} отсутствует колонка 'UserID'.")
+                return set()
+
             for row in reader:
-                if not row:
-                    continue
                 try:
-                    uid = int(row[0])
+                    uid = int(row['UserID'])
                     user_ids.add(uid)
-                except ValueError:
-                    logger.warning(f"Строка не содержит корректный user_id: {row}")
+                except (ValueError, KeyError):
+                    logger.warning(f"Некорректная строка: {row}")
     except Exception as e:
         logger.error(f"Ошибка чтения файла {filepath}: {e}")
         return set()
+
     return user_ids
