@@ -3,7 +3,7 @@ BASH_ENV=/etc/profile.d/envvars.sh
 PATH=/usr/local/bin:/usr/bin:/bin
 LOGFILE=/app/logs/cron.log
 
-30 7 * * * python3 /app/cleaner.py >> $LOGFILE 2>&1
-*/5 * * * * python3 /app/export.py >> /app/logs/cron.log 2>&1
-00 20 * * * python3 /app/import.py >> $LOGFILE 2>&1
+* * * * * python3 /app/cleaner.py >> $LOGFILE 2>&1
+* * * * * python3 /app/export.py >> /app/logs/cron.log 2>&1
+* * * * * python3 /app/import.py >> $LOGFILE 2>&1
 * * * * * env > /app/logs/test_env.txt 2>&1
