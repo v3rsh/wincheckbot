@@ -4,11 +4,11 @@ PATH=/usr/local/bin:/usr/bin:/bin
 LOGFILE=/app/logs/cron.log
 
 # Cleaner: запускается за 1 минуту до export, каждые 10 минут
-9,19,29,39,49,59 * * * * python3 /app/cleaner.py >> $LOGFILE 2>&1
+9,19,29,39,49,59 * * * * cd /app && python3 /app/cleaner.py >> $LOGFILE 2>&1
 
 # Export: каждые 10 минут
-10,20,30,40,50,00 * * * * python3 /app/export.py >> $LOGFILE 2>&1
+10,20,30,40,50,00 * * * * cd /app && python3 /app/export.py >> $LOGFILE 2>&1
 
 # Import: через 5 минут после export
-15,25,35,45,55,05 * * * * python3 /app/import.py >> $LOGFILE 2>&1
+15,25,35,45,55,05 * * * * cd /app && python3 /app/import.py >> $LOGFILE 2>&1
 
