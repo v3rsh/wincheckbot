@@ -67,7 +67,7 @@ async def main():
         skip_filename = find_import_file()
         if skip_filename:
             skip_import_file(skip_filename)
-            await write_sync_history("import-skipped", skip_filename, 0)
+            await write_sync_history("import-skipped", skip_filename, 0, comment="Файлы в папке export не обработаны")
         else:
             logger.info("Нет файла для импорта (или неверное имя), пропускаем.")
         return
@@ -76,12 +76,16 @@ async def main():
     in_filename = find_import_file()
     if not in_filename:
         logger.warning("Файл импортa не найден или неправильно назван. Выходим.")
+        await write_sync_history("import-skipped", skip_filename, 0, comment="Файл импортa не найден или неправильно назван")
+
         return
 
     # 2) Парсим CSV — получаем user_ids
     user_ids = parse_csv_users(in_filename)
     if not user_ids:
         logger.error(f"Не удалось прочесть {in_filename}, возможно файл пуст или поврежден.")
+        await write_sync_history("import-skipped", skip_filename, 0, comment=f"Не удалось прочесть {in_filename}, возможно файл пуст или поврежден")
+
         archive_import_file(in_filename, success=False)
         return
 
@@ -90,6 +94,7 @@ async def main():
     # Сравниваем с предыдущим
     if not await compare_with_previous_import(user_ids):
         logger.critical("Обнаружены аномальные различия. Обработка прервана.")
+        await write_sync_history("import-skipped", skip_filename, 0, comment="Обнаружены аномальные различия. Обработка прервана.")
         return
     # Если все ок, продолжаем
     logger.info("Обработка продолжается...")
@@ -104,18 +109,20 @@ async def main():
     else:
         logger.info("Никому не нужно отправлять уведомления.")
 
+    await write_sync_history("import", in_filename, len(user_ids), comment="success")
+
     # 5) Переносим обработанный файл в ./import/archived
     archive_import_file(in_filename, success=True)
-
+    
     logger.info("=== Импорт завершён ===")
 
 
-async def write_sync_history(sync_type: str, filename: str, count: int):
+async def write_sync_history(sync_type: str, filename: str, count: int, comment: str = ""):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
-            INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate)
-            VALUES (?, ?, ?, DATETIME('now'))
-        """, (sync_type, filename, count))
+            INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
+            VALUES (?, ?, ?, DATETIME('now'), ?)
+        """, (sync_type, filename, count, comment))
         await db.commit()
 
 

@@ -39,27 +39,32 @@ async def check_import_users_in_db(db: aiosqlite.Connection):
     # 1. Находим имя файла последнего импорта из SyncHistory
     cursor = await db.execute("""
         SELECT FileName
-          FROM SyncHistory
-         WHERE SyncType='import'
-      ORDER BY SyncDate DESC
-         LIMIT 1
+        FROM SyncHistory
+        WHERE SyncType='import'
+        AND Comment='success'
+        AND SyncDate >= DATETIME('now', '-12 hours')
+        ORDER BY SyncDate DESC
+        LIMIT 1
     """)
     row = await cursor.fetchone()
     if not row:
-        logger.warning("Нет записей об импорте в SyncHistory.")
-        return True  # Если импорта не было, продолжаем работу
+        logger.warning("Нет записей об успешном импорте за 12 часов.")
+        await write_skip_history(db, "Нет записей об успешном импорте за 12 часов.")
+        return False  # Если импорта не было, продолжаем работу
 
     import_filename = row[0]
     archived_path = Path("./import/archived") / import_filename
 
     if not archived_path.is_file():
         logger.error(f"Файл {archived_path} не найден в архиве.")
+        await write_skip_history(db, f"Файл {archived_path} не найден в архиве.")
         return False
 
     # 2. Читаем user_id из файла импорта
     import_user_ids = set(parse_csv_users(str(archived_path)))
     if not import_user_ids:
         logger.warning("Не удалось прочитать user_id из файла импорта.")
+        await write_skip_history(db, "Не удалось прочитать user_id из файла импорта.")
         return False
 
     # 3. Получаем user_id из таблицы Users
@@ -70,6 +75,7 @@ async def check_import_users_in_db(db: aiosqlite.Connection):
     missing_ids = import_user_ids - db_user_ids
     if missing_ids:
         logger.error(f"В базе отсутствуют user_id из импорта: {missing_ids}")
+        await write_skip_history(db, f"В базе отсутствуют user_id из импорта: {missing_ids}")
         return False
     else:
         logger.info("Все user_id из импорта присутствуют в базе.")
@@ -81,7 +87,7 @@ async def main():
     async with aiosqlite.connect(DB_PATH) as db:
         # Проверяем наличие всех user_id из импорта в базе
         if not await check_import_users_in_db(db):
-            logger.critical("Обнаружены отсутствующие user_id. Очистка прервана.")
+            logger.error("Очистка прервана.")
             return
         
         await ensure_comment_column(db)

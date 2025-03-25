@@ -84,7 +84,7 @@ async def main():
             VALUES (?, ?, ?, DATETIME('now'))
         """, ("export", out_filename, exported_count))
         await db.commit()
-
+    
     logger.info("=== Экспорт завершён. ===\n")
 
 if __name__ == "__main__":
