@@ -35,7 +35,7 @@ async def process_unapproved_in_db(active_user_ids: set[int], in_filename: str) 
                 UPDATE Users
                    SET Approve=FALSE,
                        WasApproved=TRUE,
-                       Banned=FALSE,
+                       Banned=FALSE
                  WHERE UserID IN ({placeholders})
             """
             await db.execute(query, tuple(changed_users))
