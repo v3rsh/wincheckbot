@@ -4,7 +4,7 @@ import aiosqlite
 import asyncio
 import csv
 
-CSV_FILE = "users_export.csv"
+CSV_FILE = "data/users_export.csv"
 PULSE_DB = "data/pulse.db"
 
 async def import_missing_users():
