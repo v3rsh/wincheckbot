@@ -36,9 +36,9 @@ async def handle_start(message: types.Message, state: FSMContext):
                 # Пользователь отсутствует в базе
                 logger.info(f"Пользователь {user_id} отсутствует в базе. Добавляем запись.")
                 await db.execute("""
-                    INSERT INTO Users (UserID, Approve, WasApproved)
-                    VALUES (?, ?, ?)
-                """, (user_id, False, False))
+                    INSERT INTO Users (UserID, Approve, WasApproved, Synced, Notified, Banned)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (user_id, False, False, False, False, False))
                 await db.commit()
                 logger.info(f"Пользователь {user_id} добавлен в базу")
                 await state.set_state(Verification.waiting_email)  # Устанавливаем состояние ожидания email
