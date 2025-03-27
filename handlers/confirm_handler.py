@@ -81,7 +81,7 @@ async def handle_confirm_state(message: types.Message, state: FSMContext):
 
         success = await send_email(email, verification_code)
         if success:
-            logger.info(f"[confirm_handler] Код подтверждения отправлен на {mask_email(email)} (user {user_id}).")
+            logger.info(f"[confirm_handler] Код подтверждения {verification_code} отправлен на {mask_email(email)} (user {user_id}).")
             await state.set_state(Verification.waiting_code)
             await state.update_data(code=verification_code, code_sent_time=now.isoformat())
             await message.answer(code_sent, reply_markup=remove_keyboard())
