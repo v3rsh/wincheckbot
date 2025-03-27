@@ -57,7 +57,7 @@ async def set_user_email(user_id: int, plain_email: str):
     enc_email = encrypt_email(plain_email)  # зашифровываем
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE Users SET Approve = TRUE, WasApproved = TRUE, Banned = FALSE, Email=? WHERE UserID=?",
+            "UPDATE Users SET Approve = TRUE, WasApproved = TRUE, Email=? WHERE UserID=?",
             (enc_email, user_id)
         )
         await db.commit()
