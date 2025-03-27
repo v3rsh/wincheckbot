@@ -81,7 +81,8 @@ async def main():
         return
 
     # 2) Парсим CSV — получаем user_ids
-    user_ids = parse_csv_users(in_filename)
+    import_rel = in_filename.relative_to("./import")
+    user_ids = parse_csv_users(import_rel)
     if not user_ids:
         logger.error(f"Не удалось прочесть {in_filename}, возможно файл пуст или поврежден.")
         await write_sync_history("import-skipped", skip_filename, 0, comment=f"Не удалось прочесть {in_filename}, возможно файл пуст или поврежден")
