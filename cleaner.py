@@ -59,9 +59,11 @@ async def check_import_users_in_db(db: aiosqlite.Connection):
         logger.error(f"Файл {archived_path} не найден в архиве.")
         await write_skip_history(db, f"Файл {archived_path} не найден в архиве.")
         return False
-
+    
     # 2. Читаем user_id из файла импорта
-    import_user_ids = set(parse_csv_users(str(archived_path)))
+    # Превращаем «./import/archived/…» в путь относительно ./import:
+    archived_rel = archived_path.relative_to("./import")
+    import_user_ids = set(parse_csv_users(str(archived_rel)))
     if not import_user_ids:
         logger.warning("Не удалось прочитать user_id из файла импорта.")
         await write_skip_history(db, "Не удалось прочитать user_id из файла импорта.")
