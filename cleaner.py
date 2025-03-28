@@ -140,7 +140,6 @@ async def main():
                     try:
                         await bot.ban_chat_member(chat_id, user_id)
                         logger.info(f"[cleaner] Удалён user_id={user_id} из чата={chat_id}")
-                        removed_count += 1
                     except Exception as e:
                         logger.warning(f"[cleaner] Не удалось удалить user_id={user_id} из {chat_id}: {e}")
 
@@ -150,6 +149,7 @@ async def main():
                        SET Banned=TRUE
                      WHERE UserID=?
                 """, (user_id,))
+                removed_count += 1
 
             await db.commit()
 
