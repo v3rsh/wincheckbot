@@ -25,11 +25,15 @@ OUTPUT_DIR = "./export"
 
 async def main():
     logger.info("=== [export.py] Начинаем экспорт пользователей для компании ===")
+    logger.info(f"Current working directory: {os.getcwd()}")
+    
     today_str = datetime.date.today().strftime("%Y%m%d")
     # Добавляем время в формате HHMM для уникальности имени файла
     time_str = datetime.datetime.now().strftime("%H%M")
     out_filename = f"export_{today_str}_{time_str}.csv"
     outpath = Path(OUTPUT_DIR) / out_filename
+    
+    logger.info(f"Attempting to create file: {outpath.absolute()}")  # Добавляем эту строку
     
     async with aiosqlite.connect(DB_PATH) as db:
         # 1) Находим всех, кто Approve=TRUE, Synced=FALSE
@@ -50,7 +54,6 @@ async def main():
         exported_count = 0
 
         # 2) Пишем CSV
-        outpath.parent.mkdir(parents=True, exist_ok=True)  # Создаём ./export при необходимости
         with outpath.open("w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f, delimiter=";")
             writer.writerow(["UserID", "Email"])  # заголовок
