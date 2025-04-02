@@ -83,6 +83,51 @@ async def check_import_users_in_db(db: aiosqlite.Connection):
         logger.info("Все user_id из импорта присутствуют в базе.")
         return True
 
+async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
+    """
+    Очищает все группы с пометкой New=TRUE от пользователей с Approve=FALSE
+    """
+    # Получаем список новых групп
+    cursor = await db.execute("""
+        SELECT ChatID
+        FROM Groups
+        WHERE New=TRUE AND can_restrict_members=TRUE
+    """)
+    new_groups = [row[0] for row in await cursor.fetchall()]
+    
+    if not new_groups:
+        logger.info("Нет новых групп для полной очистки")
+        return 0
+
+    # Получаем всех пользователей с Approve=FALSE
+    cursor = await db.execute("""
+        SELECT UserID
+        FROM Users
+        WHERE Approve=FALSE
+    """)
+    unapproved_users = [row[0] for row in await cursor.fetchall()]
+    
+    removed_count = 0
+    for chat_id in new_groups:
+        for user_id in unapproved_users:
+            try:
+                await bot.ban_chat_member(chat_id, user_id)
+                logger.info(f"[cleaner:new_groups] Удалён user_id={user_id} из нового чата={chat_id}")
+                removed_count += 1
+            except Exception as e:
+                logger.warning(f"[cleaner:new_groups] Не удалось удалить user_id={user_id} из {chat_id}: {e}")
+
+        # Снимаем пометку New с группы
+        await db.execute("""
+            UPDATE Groups
+            SET New=FALSE
+            WHERE ChatID=?
+        """, (chat_id,))
+        await db.commit()
+        logger.info(f"Группа {chat_id} очищена и помечена как не новая")
+
+    return removed_count
+
 async def main():
     logger.info("=== [cleaner.py] Запущен сценарий очистки ===")
 
@@ -103,7 +148,9 @@ async def main():
 
         # Если дошли сюда - значит, мы НЕ пропускаем чистку
         bot = Bot(token=API_TOKEN)
-        removed_count = 0
+        regular_removed_count = 0
+        new_groups_removed_count = 0
+
         try:
             # 1) Список групп, где бот может ограничивать
             eligible_groups = await get_eligible_groups(db)
@@ -132,7 +179,7 @@ async def main():
             logger.info(f"Найдено {len(unapproved_users)} пользователей для удаления из групп.")
 
             # 3) Удаляем этих пользователей из групп
-            removed_count = 0
+            regular_removed_count = 0
             for (user_id,) in unapproved_users:
                 logger.info(f"[cleaner.py] Type of eligible_groups: {type(eligible_groups)}")
                 logger.info(f"[cleaner.py] First 5 elements in eligible_groups: {eligible_groups[:5] if eligible_groups else 'EMPTY'}")
@@ -149,22 +196,27 @@ async def main():
                        SET Banned=TRUE
                      WHERE UserID=?
                 """, (user_id,))
-                removed_count += 1
+                regular_removed_count += 1
 
             await db.commit()
 
-            # 4) Пишем в SyncHistory
+            # 4) Очистка новых групп
+            new_groups_removed_count = await clean_new_groups(db, bot)
+            
+            # 5) Пишем в SyncHistory общий результат
+            total_removed = regular_removed_count + new_groups_removed_count
             await db.execute("""
                 INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
                 VALUES (?, ?, ?, DATETIME('now'), ?)
-            """, ("cleaner", "-", removed_count, "ok"))
+            """, ("cleaner", "-", total_removed, 
+                  f"regular:{regular_removed_count}, new_groups:{new_groups_removed_count}"))
             await db.commit()
 
         except Exception as e:
             logger.exception(f"Неожиданная ошибка в cleaner.py: {e}")
         finally:
             await bot.session.close()
-            logger.info(f"Сессия бота закрыта. Удалено {removed_count} записей (ban).")
+            logger.info(f"Сессия бота закрыта. Удалено всего {total_removed} записей (regular:{regular_removed_count}, new_groups:{new_groups_removed_count})")
 
 if __name__ == "__main__":
     asyncio.run(main())

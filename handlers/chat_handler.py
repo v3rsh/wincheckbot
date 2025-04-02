@@ -37,7 +37,8 @@ async def handle_my_chat_member(update: ChatMemberUpdated):
             "can_manage_chat": False,
             "can_restrict_members": False,
             "can_promote_members": False,
-            "can_invite_users": False
+            "can_invite_users": False,
+            "New": True
         }
 
         # 3) Если бот - админ, копируем нужные поля

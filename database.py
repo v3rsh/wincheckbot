@@ -32,7 +32,8 @@ async def initialize_db():
                 can_manage_chat BOOLEAN,  
                 can_restrict_members BOOLEAN,  
                 can_promote_members BOOLEAN,  
-                can_invite_users BOOLEAN
+                can_invite_users BOOLEAN,
+                New BOOLEAN DEFAULT TRUE
             )
         ''')
         # Создание таблицы Groups (если её ещё нет)
