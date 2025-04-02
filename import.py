@@ -61,7 +61,10 @@ async def compare_with_previous_import(current_user_ids: set[int]) -> bool:
 async def main():
     logger.info("=== [import.py] Начинаем обработку файла от компании ===")
 
-    filename = find_import_file()
+    filename: str | Path = find_import_file()
+    if not isinstance(filename, Path):
+        filename = Path(filename)
+    logger.info(f"Filename type: {type(filename)}, value: {filename}")
     # 0) Проверяем, пуста ли папка /export
     if not is_export_empty():
         # Значит, компания не забрала файлы из /export => пропускаем этот импорт
@@ -80,11 +83,11 @@ async def main():
         return
 
     # 2) Парсим CSV — получаем user_ids
-    import_rel = filename.relative_to("./import")
+    import_rel = Path(filename).relative_to("./import")
     user_ids = parse_csv_users(import_rel)
     if not user_ids:
         logger.error(f"Не удалось прочесть {filename}, возможно файл пуст или поврежден.")
-        await write_sync_history("import-skipped", filename, 0, comment=f"Не удалось прочесть {in_filename}, возможно файл пуст или поврежден")
+        await write_sync_history("import-skipped", filename, 0, comment=f"Не удалось прочесть {import_rel}, возможно файл пуст или поврежден")
 
         archive_import_file(filename, success=False)
         return
