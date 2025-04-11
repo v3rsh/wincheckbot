@@ -1,6 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from config import API_TOKEN, logger
+from database import initialize_db
 from exclusions import check_exclusions
 from handlers import (
     start_handler, check_handler, manual_handler, 
@@ -13,6 +14,7 @@ from redis.asyncio import Redis
 
 async def main():
     logger.info("Запуск бота.")
+    await initialize_db()
     await check_exclusions()
     # Инициализация бота и диспетчера
     bot = Bot(token=API_TOKEN)
