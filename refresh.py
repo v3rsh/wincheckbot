@@ -7,13 +7,18 @@ def reset_fsm_state(user_id: int, chat_id: int = None, redis_url: str = "redis:/
     # Если chat_id не указан, предполагаем, что chat_id = user_id (личный чат)
     chat_id = chat_id or user_id
 
-    # Шаблон ключа для поиска (например: "fsm:{user_id}:{chat_id}:*")
-    key_pattern = f"fsm:{user_id}:{chat_id}:*"
+    # Шаблон ключа для поиска с правильным префиксом
+    key_pattern = f"pulse_fsm:*:{user_id}:{chat_id}:*"  # Добавлен префикс pulse_fsm
 
     # Ищем и удаляем все ключи, связанные с состоянием пользователя
+    deleted = False
     for key in r.scan_iter(match=key_pattern):
         r.delete(key)
         print(f"Удален ключ: {key.decode()}")
+        deleted = True
+    
+    if not deleted:
+        print(f"Не найдено ключей по шаблону: {key_pattern}")
 
 if __name__ == "__main__":
     try:
