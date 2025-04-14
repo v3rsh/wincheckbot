@@ -4,8 +4,10 @@
 import asyncio
 import aiosqlite
 import csv
+import os
 from config import DB_PATH, logger
 from datetime import datetime
+from pathlib import Path
 
 async def export_users_to_csv():
     """
@@ -16,7 +18,17 @@ async def export_users_to_csv():
     
     # Формируем имя файла с текущей датой
     current_date = datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_filename = f"all_users_{current_date}.csv"
+    filename = f"all_users_{current_date}.csv"
+    
+    # Создаем путь к директории data (она примонтирована к контейнеру)
+    data_dir = Path("./data")
+    # Проверяем, существует ли директория, если нет - создаем
+    if not data_dir.exists():
+        data_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Создана директория {data_dir}")
+    
+    # Формируем полный путь к файлу
+    csv_filepath = data_dir / filename
     
     # Получаем данные пользователей из базы
     async with aiosqlite.connect(DB_PATH) as db:
@@ -37,7 +49,7 @@ async def export_users_to_csv():
         logger.info(f"Найдено {len(users)} пользователей в базе")
         
         # Записываем данные в CSV
-        with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+        with open(csv_filepath, 'w', newline='', encoding='utf-8') as csvfile:
             # Определяем заголовки
             fieldnames = ['UserID', 'Username', 'FirstName', 'LastName', 'Approve']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -55,14 +67,14 @@ async def export_users_to_csv():
                     'Approve': 'Да' if user['Approve'] else 'Нет'
                 })
         
-        logger.info(f"Данные {len(users)} пользователей экспортированы в файл {csv_filename}")
-        return csv_filename
+        logger.info(f"Данные {len(users)} пользователей экспортированы в файл {csv_filepath}")
+        return csv_filepath
 
 async def main():
     try:
-        filename = await export_users_to_csv()
-        if filename:
-            print(f"\nФайл успешно создан: {filename}")
+        filepath = await export_users_to_csv()
+        if filepath:
+            print(f"\nФайл успешно создан: {filepath}")
             print("\nФайл содержит следующие данные:")
             print("- UserID: идентификатор пользователя в Telegram")
             print("- Username: никнейм пользователя")
@@ -70,6 +82,7 @@ async def main():
             print("- LastName: фамилия пользователя")
             print("- Approve: статус верификации (Да/Нет)")
             print("\nЭти данные можно использовать для удаления неактивных пользователей из чатов.")
+            print(f"\nФайл доступен в примонтированной папке data, видимой вне контейнера.")
     except Exception as e:
         logger.error(f"Ошибка при выполнении скрипта: {e}")
     finally:
