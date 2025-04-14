@@ -54,7 +54,7 @@ async def main():
         # Пишем CSV
         with outpath.open("w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f, delimiter=";")
-            writer.writerow(["UserID", "Email", "Approved"])  # добавляем колонку Approved
+            writer.writerow(["UserID", "Email"])  # Только стандартные колонки
 
             for row_id, user_id, enc_email in rows:
                 # Расшифровываем email
@@ -64,12 +64,7 @@ async def main():
                 if plain_email.strip().lower() in [ex.strip().lower() for ex in EXCLUDED_EMAILS if ex.strip()]:
                     continue
 
-                # Получаем статус Approve
-                cursor = await db.execute("SELECT Approve FROM Users WHERE UserID=?", (user_id,))
-                row = await cursor.fetchone()
-                is_approved = "Yes" if row and row[0] else "No"
-
-                writer.writerow([user_id, plain_email, is_approved])
+                writer.writerow([user_id, plain_email])
                 exported_count += 1
 
         logger.info(f"Создан файл: {outpath}. Экспортировано {exported_count} пользователей.")
