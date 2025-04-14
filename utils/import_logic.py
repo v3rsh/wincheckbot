@@ -45,3 +45,51 @@ async def process_unapproved_in_db(active_user_ids: set[int], in_filename: str) 
             logger.info("Никого не перевели на Approve=FALSE.")
 
     return changed_users
+
+async def restore_banned_users(active_user_ids: set[int]) -> list[int]:
+    """
+    Восстанавливаем доступ пользователям, которые ранее были забанены или потеряли доступ, 
+    но присутствуют в новом списке активных пользователей.
+    
+    Для таких пользователей устанавливаем:
+    - Approve = TRUE (разрешаем доступ)
+    - Synced = TRUE (помечаем как синхронизированных)
+    - Banned = FALSE (снимаем бан)
+    
+    Возвращает список ID пользователей, которым восстановлен доступ.
+    """
+    restored_users = []
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Получаем всех пользователей, которым нужно восстановить доступ
+        # (они есть в списке активных, но у них Approve=FALSE)
+        cursor = await db.execute("""
+            SELECT UserID FROM Users
+            WHERE Approve=FALSE 
+              AND UserID IN ({})
+        """.format(','.join('?' * len(active_user_ids))), tuple(active_user_ids))
+        
+        rows = await cursor.fetchall()
+        
+        if rows:
+            # Извлекаем ID пользователей из результатов запроса
+            users_to_restore = [row[0] for row in rows]
+            
+            # Восстанавливаем доступ пользователям
+            query = """
+                UPDATE Users
+                SET Approve=TRUE,
+                    Synced=TRUE,
+                    Banned=FALSE
+                WHERE UserID IN ({})
+            """.format(','.join('?' * len(users_to_restore)))
+            
+            await db.execute(query, tuple(users_to_restore))
+            await db.commit()
+            
+            logger.info(f"Восстановлен доступ для {len(users_to_restore)} пользователей.")
+            restored_users = users_to_restore
+        else:
+            logger.info("Нет пользователей для восстановления доступа.")
+    
+    return restored_users

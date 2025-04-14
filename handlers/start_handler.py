@@ -35,10 +35,17 @@ async def handle_start(message: types.Message, state: FSMContext):
             if not user:
                 # Пользователь отсутствует в базе
                 logger.info(f"Пользователь {user_id} отсутствует в базе. Добавляем запись.")
+                # Получаем данные пользователя из Telegram
+                username = message.from_user.username
+                first_name = message.from_user.first_name
+                last_name = message.from_user.last_name
+                
+                logger.info(f"Данные пользователя: username={username}, first_name={first_name}, last_name={last_name}")
+                
                 await db.execute("""
-                    INSERT INTO Users (UserID, Approve, WasApproved, Synced, Notified, Banned)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (user_id, False, False, False, False, False))
+                    INSERT INTO Users (UserID, Username, FirstName, LastName, Approve, WasApproved, Synced, Notified, Banned)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (user_id, username, first_name, last_name, False, False, False, False, False))
                 await db.commit()
                 logger.info(f"Пользователь {user_id} добавлен в базу")
                 await state.set_state(Verification.waiting_email)  # Устанавливаем состояние ожидания email

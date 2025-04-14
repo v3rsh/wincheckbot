@@ -12,6 +12,9 @@ async def initialize_db():
             CREATE TABLE IF NOT EXISTS Users (
                 ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 UserID INTEGER UNIQUE,
+                Username TEXT,
+                FirstName TEXT,
+                LastName TEXT,
                 Email TEXT,
                 Approve BOOLEAN DEFAULT FALSE,
                 WasApproved BOOLEAN DEFAULT FALSE,

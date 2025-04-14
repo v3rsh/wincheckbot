@@ -14,7 +14,7 @@ from utils.file_ops import (
     archive_import_file,
     parse_csv_users
 )
-from utils.import_logic import process_unapproved_in_db
+from utils.import_logic import process_unapproved_in_db, restore_banned_users
 from utils.notify import notify_newly_fired
 import aiosqlite
 
@@ -103,6 +103,11 @@ async def main():
     # 3) Снимаем Approve=TRUE тем, кто не в списке (и не в EXCLUDED_EMAILS)
     changed_users = await process_unapproved_in_db(user_ids, filename)
     
+    # 3.1) Восстанавливаем доступ пользователям, которые ранее были забанены, но теперь в списке
+    restored_users = await restore_banned_users(user_ids)
+    if restored_users:
+        logger.info(f"Восстановлен доступ для {len(restored_users)} пользователей, которые ранее были забанены.")
+    
     # 4) Отправляем уведомления только тем, кому ещё не отправляли
     if changed_users:
         logger.info(f"Формирование уведомлений для {len(changed_users)} уволенных.")
@@ -110,7 +115,7 @@ async def main():
     else:
         logger.info("Никому не нужно отправлять уведомления.")
 
-    await write_sync_history("import", filename, len(user_ids), comment="success")
+    await write_sync_history("import", filename, len(user_ids), comment=f"success (восстановлено: {len(restored_users)})")
 
     # 5) Переносим обработанный файл в ./import/archived
     archive_import_file(filename, success=True)
