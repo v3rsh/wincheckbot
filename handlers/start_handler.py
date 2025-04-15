@@ -58,6 +58,7 @@ async def handle_start(message: types.Message, state: FSMContext):
             if Approve:
                 # Пользователь верифицирован
                 logger.info(f"Пользователь {user_id} верифицирован.")
+                await state.set_state(Verification.verified)
                 await message.answer(email_verified, reply_markup=verified_keyboard())
 
             elif not Approve and WasApproved:
