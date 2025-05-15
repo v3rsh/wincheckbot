@@ -26,6 +26,7 @@ def find_import_file() -> str | None:
     today_str = datetime.date.today().strftime("%Y%m%d")
     expected_name = f"active_users_{today_str}.csv"
     full_path = os.path.join(IMPORT_DIR, expected_name)
+    logger.info(f"find_import_file: expected_name={expected_name}, IMPORT_DIR={IMPORT_DIR}, full_path={full_path}")
     if os.path.exists(full_path):
         return expected_name
     return None

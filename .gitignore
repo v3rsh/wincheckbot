@@ -12,3 +12,6 @@ import/
 data/
 redis_data/
 .env
+.cursor/rules/project-txt-rule.mdc
+.cursor/rules/rc-rule-1.mdc
+.cursor/rules/universal-rule.mdc
