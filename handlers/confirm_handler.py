@@ -73,6 +73,7 @@ async def handle_confirm_state(message: types.Message, state: FSMContext):
     elif text == "отправить код":
         # Отправляем код
         verification_code = str(random.randint(100000, 999999))
+        logger.info(f"[confirm_handler] Код подтверждения {verification_code}. Готовится отправка {mask_email(email)} (user {user_id}).")
         now = datetime.now()
         if not email:
             logger.warning(f"[confirm_handler] user {user_id} нет email в FSM, но запросил отправку кода.")
