@@ -1,7 +1,10 @@
 # utils/email_sender.py
 import requests
+import smtplib
 from config import UNI_API_KEY, UNI_EMAIL, logger  # Импорт логгера из config.py
 from utils.mask import mask_email
+from email.mime.text import MIMEText
+from email.header import Header
 
 async def send_email(to_email, code):
     try:
@@ -78,4 +81,36 @@ async def send_email(to_email, code):
 
     except requests.exceptions.RequestException as e:
         logger.exception(f"Сетевая ошибка при отправке письма на {mask_email(to_email)}: {e}")
+        return False
+
+def send_test(to_email, code):
+    """
+    Отправляет email с кодом через SMTP mail.winline.ru:25 (без SSL).
+    """
+    try:
+        smtp_server = "mail.winline.ru"
+        smtp_port = 25
+        sender_name = "HR отдел Winline"
+        sender_email = UNI_EMAIL
+        subject = "Код подтверждения"
+        email_body = f"""
+        <html>
+        <body>
+            <h1>Подтверждение регистрации</h1>
+            <p>Ваш код подтверждения: <strong>{code}</strong></p>
+            <p>Введите его в приложении для завершения регистрации.</p>
+        </body>
+        </html>
+        """
+        msg = MIMEText(email_body, "html", "utf-8")
+        msg["Subject"] = Header(subject, "utf-8")
+        msg["From"] = f"{sender_name} <{sender_email}>"
+        msg["To"] = to_email
+
+        with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
+            server.sendmail(sender_email, [to_email], msg.as_string())
+        logger.info(f"Письмо успешно отправлено через SMTP на {mask_email(to_email)}.")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка при отправке письма через SMTP на {mask_email(to_email)}: {e}")
         return False
