@@ -1,7 +1,7 @@
 # utils/email_sender.py
 import requests
 import smtplib
-from config import UNI_API_KEY, UNI_EMAIL, logger  # Импорт логгера из config.py
+from config import UNI_EMAIL, logger  # Импорт логгера из config.py
 from utils.mask import mask_email
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
