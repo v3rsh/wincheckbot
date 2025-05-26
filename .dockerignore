@@ -11,4 +11,3 @@ import/
 *.pyc
 __pycache__/
 redis_data/
-scripts/
