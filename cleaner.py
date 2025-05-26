@@ -42,7 +42,7 @@ async def check_import_users_in_db(db: aiosqlite.Connection):
         FROM SyncHistory
         WHERE SyncType='import'
         AND Comment='success'
-        AND SyncDate >= DATETIME('now', '-12 hours')
+        AND SyncDate >= DATETIME('now', 'localtime', '-12 hours')
         ORDER BY SyncDate DESC
         LIMIT 1
     """)
@@ -171,7 +171,7 @@ async def main():
                 logger.info("Нет пользователей Approve=FALSE и Banned=FALSE. Выходим.")
                 await db.execute("""
                     INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
-                    VALUES (?, ?, ?, DATETIME('now'), ?)
+                    VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
                 """, ("cleaner", "-", 0, "no unapproved users"))
                 await db.commit()
                 return
@@ -207,7 +207,7 @@ async def main():
             total_removed = regular_removed_count + new_groups_removed_count
             await db.execute("""
                 INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
-                VALUES (?, ?, ?, DATETIME('now'), ?)
+                VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
             """, ("cleaner", "-", total_removed, 
                   f"regular:{regular_removed_count}, new_groups:{new_groups_removed_count}"))
             await db.commit()

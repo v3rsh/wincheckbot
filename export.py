@@ -84,7 +84,7 @@ async def main():
 
         await db.execute("""
             INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate)
-            VALUES (?, ?, ?, DATETIME('now'))
+            VALUES (?, ?, ?, DATETIME('now', 'localtime'))
         """, ("export", out_filename, exported_count))
         await db.commit()
     

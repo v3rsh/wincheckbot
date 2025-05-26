@@ -76,7 +76,7 @@ async def main():
         # Записываем в SyncHistory
         await db.execute("""
             INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
-            VALUES (?, ?, ?, DATETIME('now'), ?)
+            VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
         """, ("export-all", out_filename, exported_count, "All users with email"))
         await db.commit()
     

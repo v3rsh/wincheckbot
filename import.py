@@ -127,7 +127,7 @@ async def write_sync_history(sync_type: str, filename: str, count: int, comment:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
             INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
-            VALUES (?, ?, ?, DATETIME('now'), ?)
+            VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
         """, (sync_type, filename, count, comment))
         await db.commit()
 

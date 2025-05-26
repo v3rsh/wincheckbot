@@ -37,7 +37,7 @@ async def check_exclusions():
         if processed_count > 0:
             await db.execute("""
                 INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
-                VALUES (?, ?, ?, DATETIME('now'), ?)
+                VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
             """, ("exclusion_check", "-", processed_count, "Проверка исключений при старте"))
             await db.commit()
             logger.info(f"Обработано {processed_count} пользователей при проверке исключений.")

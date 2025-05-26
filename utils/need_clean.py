@@ -59,7 +59,7 @@ async def check_if_need_to_skip(db: aiosqlite.Connection) -> Tuple[bool, str]:
         SELECT COUNT(*)
           FROM SyncHistory
          WHERE SyncType='import'
-           AND date(SyncDate) = ?
+           AND date(SyncDate, 'localtime') = ?
     """, (yesterday,))
     (import_count,) = await cursor.fetchone()
 
@@ -94,7 +94,7 @@ async def write_skip_history(db: aiosqlite.Connection, comment: str):
     """
     await db.execute("""
         INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
-        VALUES (?, ?, ?, DATETIME('now'), ?)
+        VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
     """, ("cleaner-skip", "-", 0, comment))
     await db.commit()
 
