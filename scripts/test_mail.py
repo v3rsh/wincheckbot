@@ -5,7 +5,7 @@ import asyncio
 # Добавляем родительскую директорию в sys.path, чтобы модуль utils был доступен
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.email_sender import send_test
+from utils.email_sender import send_email
 from utils.mask import mask_email
 
 try:
@@ -23,7 +23,7 @@ def main():
     email = input("Введите email для отправки тестового письма: ").strip()
     code = "111111"
     print(f"Пробуем отправить письмо на {email}...")
-    result = send_test(email, code)
+    result = send_email(email, code)
     if result:
         print(f"Письмо успешно отправлено на {email}")
         logger.info(f"Письмо успешно отправлено на {mask_email(email)}")
