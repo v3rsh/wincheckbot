@@ -4,7 +4,9 @@ import smtplib
 from config import UNI_API_KEY, UNI_EMAIL, logger  # Импорт логгера из config.py
 from utils.mask import mask_email
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from email.header import Header
+from email.utils import formatdate, make_msgid
 
 async def send_email(to_email, code):
     try:
@@ -85,7 +87,8 @@ async def send_email(to_email, code):
 
 def send_test(to_email, code):
     """
-    Отправляет email с кодом через SMTP mail.winline.ru:25 (без SSL).
+    Отправляет email с кодом через SMTP mail.winline.ru:25 с использованием TLS и добавлением
+    заголовков для предотвращения попадания в спам.
     """
     try:
         smtp_server = "mail.winline.ru"
@@ -93,7 +96,21 @@ def send_test(to_email, code):
         sender_name = "HR отдел Winline"
         sender_email = UNI_EMAIL
         subject = "Код подтверждения"
-        email_body = f"""
+        
+        # Создаем multipart/alternative сообщение (HTML + текстовая версия)
+        message = MIMEMultipart('alternative')
+        
+        # Текстовая версия сообщения (без HTML)
+        plain_text = f"""
+Подтверждение регистрации
+
+Ваш код подтверждения: {code}
+
+Введите его в приложении для завершения регистрации.
+        """
+        
+        # HTML версия сообщения
+        html_body = f"""
         <html>
         <body>
             <h1>Подтверждение регистрации</h1>
@@ -102,13 +119,35 @@ def send_test(to_email, code):
         </body>
         </html>
         """
-        msg = MIMEText(email_body, "html", "utf-8")
-        msg["Subject"] = Header(subject, "utf-8")
-        msg["From"] = f"{sender_name} <{sender_email}>"
-        msg["To"] = to_email
-
+        
+        # Добавляем обе версии сообщения
+        message.attach(MIMEText(plain_text, 'plain', 'utf-8'))
+        message.attach(MIMEText(html_body, 'html', 'utf-8'))
+        
+        # Добавляем стандартные заголовки
+        message["Subject"] = Header(subject, "utf-8")
+        message["From"] = f"{sender_name} <{sender_email}>"
+        message["To"] = to_email
+        
+        # Добавляем дополнительные заголовки для снижения вероятности попадания в спам
+        message["Date"] = formatdate(localtime=True)
+        message["Message-ID"] = make_msgid(domain="winline.ru")
+        message["X-Priority"] = "3"  # Нормальный приоритет
+        
         with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
-            server.sendmail(sender_email, [to_email], msg.as_string())
+            # Используем TLS если сервер поддерживает
+            server.ehlo()
+            try:
+                if server.has_extn('STARTTLS'):
+                    server.starttls()
+                    server.ehlo()
+                    logger.info("Установлено TLS-соединение с SMTP-сервером")
+            except Exception as e:
+                logger.warning(f"Не удалось установить TLS-соединение: {e}. Продолжаем без шифрования.")
+                
+            # Отправляем сообщение
+            server.sendmail(sender_email, [to_email], message.as_string())
+            
         logger.info(f"Письмо успешно отправлено через SMTP на {mask_email(to_email)}.")
         return True
     except Exception as e:
