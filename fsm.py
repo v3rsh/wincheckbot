@@ -1,4 +1,5 @@
 import redis
+import json
 
 def reset_fsm_state(user_id: int, chat_id: int = None, redis_url: str = "redis://localhost:6379/0"):
     # Подключаемся к Redis
@@ -7,18 +8,40 @@ def reset_fsm_state(user_id: int, chat_id: int = None, redis_url: str = "redis:/
     # Если chat_id не указан, предполагаем, что chat_id = user_id (личный чат)
     chat_id = chat_id or user_id
 
-    # Шаблон ключа для поиска (например: "pulse_fsm:*:user_id:chat_id:*")
-    key_pattern = f"pulse_fsm:*:{user_id}:{chat_id}:*"
+    # Шаблоны ключей для поиска (состояния и данные)
+    key_patterns = [
+        f"pulse_fsm:*:{user_id}:{chat_id}:*",  # Стандартный шаблон
+        f"pulse_fsm:data:{user_id}:{chat_id}:*",  # Данные FSM
+        f"pulse_fsm:state:{user_id}:{chat_id}:*"  # Состояние FSM
+    ]
 
-    # Ищем и удаляем все ключи, связанные с состоянием пользователя
+    # Ищем и удаляем все ключи, связанные с пользователем
     deleted = False
-    for key in r.scan_iter(match=key_pattern):
-        r.delete(key)
-        print(f"Удален ключ: {key.decode()}")
-        deleted = True
+    
+    # Перед удалением проверим, содержат ли данные лимиты email
+    data_key = f"pulse_fsm:data:{user_id}:{chat_id}:data"
+    data_bytes = r.get(data_key)
+    if data_bytes:
+        try:
+            data = json.loads(data_bytes)
+            if 'daily_email_changes_count' in data:
+                print(f"Найден счетчик daily_email_changes_count: {data['daily_email_changes_count']}")
+            if 'daily_email_changes_date' in data:
+                print(f"Найдена дата daily_email_changes_date: {data['daily_email_changes_date']}")
+            if 'email_change_count' in data:
+                print(f"Найден счетчик email_change_count: {data['email_change_count']}")
+        except json.JSONDecodeError:
+            print("Ошибка при декодировании данных FSM")
+    
+    # Удаляем все ключи
+    for pattern in key_patterns:
+        for key in r.scan_iter(match=pattern):
+            r.delete(key)
+            print(f"Удален ключ: {key.decode()}")
+            deleted = True
     
     if not deleted:
-        print(f"Не найдено ключей по шаблону: {key_pattern}")
+        print(f"Не найдено ключей по стандартным шаблонам.")
         # Попробуем более широкий поиск
         alt_pattern = f"*:{user_id}:*"
         print(f"Пробуем поиск по альтернативному шаблону: {alt_pattern}")
@@ -52,7 +75,15 @@ def show_fsm_keys(user_id: int, chat_id: int = None, redis_url: str = "redis://l
                 value = r.get(key)
                 print(f"Ключ: {key.decode()}")
                 if value:
-                    print(f"Значение: {value.decode()}")
+                    # Если это данные FSM, попробуем декодировать JSON для лучшей читаемости
+                    if "data" in key.decode():
+                        try:
+                            data = json.loads(value)
+                            print(f"Значение (декодировано): {json.dumps(data, ensure_ascii=False, indent=2)}")
+                        except json.JSONDecodeError:
+                            print(f"Значение: {value.decode()}")
+                    else:
+                        print(f"Значение: {value.decode()}")
                 else:
                     print("Значение: None")
                 print("-" * 50)
