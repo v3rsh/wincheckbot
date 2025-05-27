@@ -33,7 +33,7 @@ async def handle_confirm_state(message: types.Message, state: FSMContext):
     email = data.get("email")
     email_change_count = data.get("email_change_count", 0)
 
-    if text == "Изменить email":
+    if text == "изменить email":
         # <-- NEW: Проверяем суточный лимит
         daily_count = await get_daily_email_changes(state)
         if daily_count >= 2:
@@ -70,7 +70,7 @@ async def handle_confirm_state(message: types.Message, state: FSMContext):
         await state.set_state(Verification.waiting_email)
         await message.answer(email_change, reply_markup=remove_keyboard())
 
-    elif text == "Отправить код":
+    elif text == "отправить код":
         # Отправляем код
         verification_code = str(random.randint(100000, 999999))
         logger.info(f"[confirm_handler] Код подтверждения {verification_code}. Готовится отправка {mask_email(email)} (user {user_id}).")
