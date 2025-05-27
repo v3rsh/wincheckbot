@@ -4,7 +4,7 @@ from aiogram import Router, types
 from datetime import datetime
 from combine.answer import (
     email_request, email_verified, code_request, email_actions,
-    email_fired, email_not_verified
+    email_fired, email_not_verified, block_released, block_time
 )
 from combine.reply import verified_keyboard, remove_keyboard, email_keyboard
 from config import logger, DB_PATH
@@ -12,6 +12,7 @@ from aiogram.filters.command import Command
 from states import Verification
 from aiogram.fsm.context import FSMContext
 import os
+from handlers.block_handler import check_if_still_blocked
 
 router = Router()
 
@@ -21,6 +22,25 @@ async def handle_start(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     now = datetime.now()
     logger.info(f"Пользователь {user_id} отправил команду /start в {now.isoformat()}")
+
+    # Проверяем, находится ли пользователь в состоянии блокировки
+    current_state = await state.get_state()
+    if current_state == Verification.blocked:
+        # Проверяем, не истек ли срок блокировки
+        still_blocked = await check_if_still_blocked(state)
+        if still_blocked:
+            # Пользователь всё ещё заблокирован
+            data = await state.get_data()
+            blocked_until = datetime.fromisoformat(data["blocked_until"])
+            remaining_time = int((blocked_until - now).total_seconds() // 60)
+            logger.warning(f"Пользователь {user_id} пытается использовать /start, но он заблокирован. Осталось {remaining_time} минут.")
+            await message.answer(block_time(remaining_time), reply_markup=remove_keyboard())
+            return
+        else:
+            # Блокировка снята, уведомляем пользователя
+            logger.info(f"Блокировка для пользователя {user_id} истекла при выполнении команды /start.")
+            await message.answer(block_released, reply_markup=remove_keyboard())
+            await state.set_state(Verification.waiting_email)
 
     async with aiosqlite.connect(DB_PATH) as db:
         logger.info(f"Абсолютный путь к базе: {os.path.abspath(DB_PATH)}")

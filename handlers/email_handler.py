@@ -2,12 +2,14 @@
 import re
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
+from datetime import datetime, timedelta
 from utils.mask import mask_email
-from combine.answer import email_confirm, email_invalid, email_limit_change
+from combine.answer import email_confirm, email_invalid, email_limit_change, block_released
 from combine.reply import remove_keyboard, email_keyboard
 from config import logger, EXCLUDED_EMAILS, WORK_MAIL
 from states import Verification
 from utils.limits import get_daily_email_changes, increment_email_changes
+from handlers.block_handler import check_if_still_blocked
 
 router = Router()
 
@@ -38,14 +40,42 @@ async def handle_email_input(message: types.Message, state: FSMContext):
     logger.info(f"[email_handler] Пользователь {user_id} вводит email в waiting_email.")
     email_text = message.text.strip()
 
+    # Сначала проверяем, был ли пользователь заблокирован и истек ли срок блокировки
+    data = await state.get_data()
+    if "blocked_until" in data and data["blocked_until"]:
+        try:
+            blocked_until = datetime.fromisoformat(data["blocked_until"])
+            now = datetime.now()
+            
+            if now < blocked_until:
+                # Пользователь всё ещё должен быть заблокирован
+                logger.warning(f"[email_handler] Пользователь {user_id} пытается ввести email, но должен быть заблокирован")
+                await state.set_state(Verification.blocked)
+                return
+            else:
+                # Блокировка истекла, сбрасываем счетчики и уведомляем
+                logger.info(f"[email_handler] Блокировка для пользователя {user_id} истекла. Сбрасываем счетчики.")
+                await state.update_data(
+                    blocked_until=None,
+                    daily_email_changes_count=0,
+                    daily_email_changes_date=None,
+                    email_change_count=0
+                )
+                await message.answer(block_released, reply_markup=remove_keyboard())
+        except ValueError:
+            # Ошибка формата даты, сбрасываем данные блокировки
+            await state.update_data(blocked_until=None)
+
     # <-- NEW: проверяем суточный лимит (например, если считаем "ввод email" = смена)
     daily_count = await get_daily_email_changes(state)
     if daily_count >= 2:
         # Пример: блокируем на 10 минут
-        from datetime import datetime, timedelta
         now = datetime.now()
         block_expires = now + timedelta(minutes=10)
-        await state.update_data(blocked_until=block_expires.isoformat())
+        await state.update_data(
+            blocked_until=block_expires.isoformat(),
+            # Не сбрасываем счетчики, чтобы после разблокировки пользователь не мог снова использовать лимит
+        )
         await state.set_state(Verification.blocked)
         logger.info(f"[email_handler] user {user_id} достиг суточного лимита смен email. Блокируем на 10 мин.")
         await message.answer(email_limit_change, reply_markup=remove_keyboard())
