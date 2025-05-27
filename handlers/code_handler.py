@@ -33,10 +33,17 @@ async def handle_code_input(message: types.Message, state: FSMContext):
     stored_code = data.get("code")
     code_attempts = data.get("code_attempts", 0)
 
-    logger.info(f"[code_handler] user_id={user_id}, stored_code={stored_code}, code_attempts={code_attempts}")
+    # Добавляем логирование типов для отладки
+    logger.info(f"[code_handler] user_id={user_id}, stored_code={stored_code} ({type(stored_code)}), code_entered={code_entered} ({type(code_entered)})")
+    
+    # Преобразуем оба значения в строки для гарантированного сравнения
+    code_entered_str = str(code_entered)
+    stored_code_str = str(stored_code) if stored_code is not None else None
+    
+    logger.info(f"[code_handler] После преобразования: stored_code_str={stored_code_str}, code_entered_str={code_entered_str}")
 
-    # 2. Сравниваем коды
-    if code_entered == stored_code:
+    # 2. Сравниваем коды как строки
+    if stored_code is not None and code_entered_str == stored_code_str:
         logger.info(f"[code_handler] Пользователь {user_id} ввёл верный код.")
         email = data.get("email")
         
