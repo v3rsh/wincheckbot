@@ -41,7 +41,7 @@ async def check_import_users_in_db(db: aiosqlite.Connection):
         SELECT FileName
         FROM SyncHistory
         WHERE SyncType='import'
-        AND Comment='success'
+        AND Comment LIKE 'success%'
         AND SyncDate >= DATETIME('now', 'localtime', '-12 hours')
         ORDER BY SyncDate DESC
         LIMIT 1
