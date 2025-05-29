@@ -13,6 +13,7 @@ from utils.unban import unban_user
 
 # Импортируем нашу «универсальную» функцию генерации ссылки
 from utils.invite import generate_and_send_invite
+from utils.limits import reset_email_send_count
 
 router = Router()
 
@@ -50,8 +51,10 @@ async def handle_code_input(message: types.Message, state: FSMContext):
         # 1) Вызываем нашу функцию для шифрования и записи email
         await set_user_email(user_id, email)
         await state.set_state(Verification.verified)
-        # Очищаем временные данные, связанные с кодом
+        
+        # Очищаем временные данные и сбрасываем все счетчики
         await state.update_data(code=None, code_attempts=0, email=None)
+        await reset_email_send_count(state)  # Сбрасываем счетчик отправки email
         await unban_user(user_id)
 
         # 3. Отправляем сообщение о том, что код подтверждён
@@ -70,9 +73,10 @@ async def handle_code_input(message: types.Message, state: FSMContext):
         # Если 3 и более попыток => блокируем на 10 мин
         if code_attempts >= 3:
             block_time = now + timedelta(minutes=10)
+            # Важно: сбрасываем только счетчик попыток ввода кода, но НЕ счетчик отправки email
             await state.update_data(blocked_until=block_time.isoformat(), code_attempts=0, code=None)
             await state.set_state(Verification.blocked)
-            logger.warning(f"[code_handler] Пользователь {user_id} заблокирован на 10 минут.")
+            logger.warning(f"[code_handler] Пользователь {user_id} заблокирован на 10 минут (3 неверных кода).")
             await message.answer(code_blocked(10), reply_markup=remove_keyboard())
         else:
             # Просто записываем обновлённый счётчик

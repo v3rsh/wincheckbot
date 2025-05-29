@@ -22,7 +22,6 @@ async def handle_blocked_user(message: Message, state: FSMContext):
             # Обрабатываем некорректные данные в поле blocked_until
             logger.error(f"Некорректный формат даты blocked_until для пользователя {message.from_user.id}. Состояния сброшены.")
             await state.update_data(blocked_until=None)
-            await state.clear()
             await message.answer(combine.answer.not_registered, reply_markup=remove_keyboard())
             return
 
@@ -35,29 +34,24 @@ async def handle_blocked_user(message: Message, state: FSMContext):
             logger.warning(f"Пользователь {message.from_user.id} заблокирован. Осталось {remaining_time} минут.")
             await message.answer(combine.answer.block_time(remaining_time), reply_markup=remove_keyboard())
         else:
-            # Если срок блокировки истёк, очищаем состояние
+            # Если срок блокировки истёк, очищаем только признак блокировки
             logger.info(f"Срок блокировки для пользователя {message.from_user.id} истёк.")
             await message.answer(combine.answer.block_released, reply_markup=remove_keyboard())
-            # Сбрасываем счетчики и блокировку
-            await state.update_data(
-                blocked_until=None, 
-                daily_email_changes_count=0,
-                daily_email_changes_date=None,
-                email_change_count=0
-            )
+            # Сбрасываем только признак блокировки
+            await state.update_data(blocked_until=None)
             await state.set_state(Verification.waiting_email)
     else:
         # Пользователь не заблокирован или данные отсутствуют
-        logger.info(f"Пользователь {message.from_user.id} ошибочно попал в block_handler. Состояния сброшены.")
+        logger.info(f"Пользователь {message.from_user.id} ошибочно попал в block_handler. Сбрасываем блокировку.")
         await state.update_data(blocked_until=None)
-        await state.clear()
+        await state.set_state(Verification.waiting_email)
         await message.answer(combine.answer.not_registered, reply_markup=remove_keyboard())
 
 # Вспомогательная функция для проверки статуса блокировки
 async def check_if_still_blocked(state: FSMContext):
     """
     Проверяет, истек ли срок блокировки пользователя.
-    Если срок истек, сбрасывает состояние блокировки.
+    Если срок истек, сбрасывает признак блокировки.
     Возвращает True, если пользователь всё ещё заблокирован, иначе False.
     """
     data = await state.get_data()
@@ -67,14 +61,9 @@ async def check_if_still_blocked(state: FSMContext):
             now = datetime.now()
             
             if now >= blocked_until:
-                # Блокировка истекла, сбрасываем состояние
+                # Блокировка истекла, сбрасываем только признак блокировки
                 logger.info(f"Автоматическая разблокировка пользователя (check_if_still_blocked)")
-                await state.update_data(
-                    blocked_until=None, 
-                    daily_email_changes_count=0,
-                    daily_email_changes_date=None,
-                    email_change_count=0
-                )
+                await state.update_data(blocked_until=None)
                 return False
             else:
                 # Пользователь всё ещё заблокирован

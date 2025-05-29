@@ -2,7 +2,7 @@
 
 from aiogram import Router
 from aiogram.types import ChatMemberUpdated, ChatMemberAdministrator, ChatMemberMember, ChatMemberOwner
-from aiogram.enums import ChatMemberStatus
+from aiogram.enums import ChatMemberStatus, ChatType
 import aiosqlite
 from config import logger, DB_PATH
 
@@ -22,7 +22,12 @@ async def handle_my_chat_member(update: ChatMemberUpdated):
     chat_title = chat.title or "Без названия"
     chat_type = chat.type  # "group","supergroup","channel"...
 
-    logger.info(f"[my_chat_member] chat_id={chat_id}, status={new_status}, title={chat_title}")
+    logger.info(f"[my_chat_member] chat_id={chat_id}, type={chat_type}, status={new_status}, title={chat_title}")
+
+    # Пропускаем личные чаты, сохраняем только группы, супергруппы и каналы
+    if chat_type == ChatType.PRIVATE:
+        logger.info(f"[my_chat_member] Пропускаем личный чат {chat_id}")
+        return
 
     try:
         # 1) Получаем статус бота в чате

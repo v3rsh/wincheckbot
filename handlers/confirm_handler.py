@@ -19,8 +19,8 @@ from combine.answer import (
 )
 from combine.reply import remove_keyboard
 
-# <-- NEW: импортируем функции из limits.py
-from utils.limits import get_daily_email_changes, increment_email_changes
+# Новые импорты для обновленной логики
+from utils.limits import get_email_send_count, increment_email_send_count, reset_code_attempts
 
 router = Router()
 
@@ -31,55 +31,46 @@ async def handle_confirm_state(message: types.Message, state: FSMContext):
 
     data = await state.get_data()
     email = data.get("email")
-    email_change_count = data.get("email_change_count", 0)
 
     if text == "изменить email":
-        # <-- NEW: Проверяем суточный лимит
-        daily_count = await get_daily_email_changes(state)
-        if daily_count >= 2:
-            # Если уже 2 изменения в сутки, блокируем 10 минут (пример)
-            now = datetime.now()
-            block_expires = now + timedelta(minutes=10)
-            await state.update_data(blocked_until=block_expires.isoformat(),
-                                    email_change_count=0)  # сбрасываем счётчик
-            await state.set_state(Verification.blocked)
-            logger.info(f"[confirm_handler] user {user_id} достиг суточного лимита. Блокируем на 10 мин.")
-            await message.answer(email_too_often, reply_markup=remove_keyboard())
-            return
-
-        # Иначе — инкрементируем суточный счётчик
-        new_count = await increment_email_changes(state)  
-        logger.info(f"[confirm_handler] user {user_id} daily_email_changes_count => {new_count}")
-
-        # Плюс локальный счётчик email_change_count (как раньше)
-        email_change_count += 1
-        if email_change_count >= 3:
-            # Пример: если локальный счётчик ≥3, тоже блокируем (или можно убрать этот блок)
-            now = datetime.now()
-            block_expires = now + timedelta(minutes=10)
-            await state.update_data(blocked_until=block_expires.isoformat(),
-                                    email_change_count=0)
-            await state.set_state(Verification.blocked)
-            logger.info(f"[confirm_handler] user {user_id} превысил локальный лимит (3). Блокируем на 10 мин.")
-            await message.answer(email_too_often, reply_markup=remove_keyboard())
-            return
-        
-        # Разрешаем ввод нового email
-        logger.info(f"[confirm_handler] user {user_id} меняет email (лок. count={email_change_count}).")
-        await state.update_data(email=None, code=None, email_change_count=email_change_count)
+        # Просто разрешаем ввод нового email без увеличения счетчика
+        logger.info(f"[confirm_handler] user {user_id} меняет email.")
+        await state.update_data(email=None, code=None)
         await state.set_state(Verification.waiting_email)
         await message.answer(email_change, reply_markup=remove_keyboard())
 
     elif text == "отправить код":
-        # Отправляем код
+        # Проверяем количество отправленных кодов
+        email_send_count = await get_email_send_count(state)
+        
+        # Если достигнут лимит 3 отправки кода - блокируем
+        if email_send_count >= 3:
+            # 4-я попытка отправить код - блокируем на 30 минут и сбрасываем счетчик
+            now = datetime.now()
+            block_expires = now + timedelta(minutes=30)
+            await state.update_data(blocked_until=block_expires.isoformat(), email_send_count=0)
+            await state.set_state(Verification.blocked)
+            logger.info(f"[confirm_handler] user {user_id} достиг лимита отправки кодов (4-я попытка). Блокируем на 30 мин.")
+            await message.answer(email_too_often, reply_markup=remove_keyboard())
+            return
+        
+        # Увеличиваем счетчик отправки кодов
+        new_count = await increment_email_send_count(state)
+        logger.info(f"[confirm_handler] user {user_id} отправка кода {new_count}/3")
+        
+        # Генерируем и отправляем код
         verification_code = str(random.randint(100000, 999999))
         logger.info(f"[confirm_handler] Код подтверждения {verification_code}. Готовится отправка {mask_email(email)} (user {user_id}).")
         now = datetime.now()
+        
         if not email:
             logger.warning(f"[confirm_handler] user {user_id} нет email в FSM, но запросил отправку кода.")
             await message.answer(email_request, reply_markup=remove_keyboard())
             return
 
+        # Сбрасываем счетчик попыток ввода кода при отправке нового кода
+        await reset_code_attempts(state)
+        
         success = await send_email(email, verification_code)
         if success:
             logger.info(f"[confirm_handler] Код подтверждения {verification_code} отправлен на {mask_email(email)} (user {user_id}).")
