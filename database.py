@@ -1,7 +1,7 @@
 # database.py
 import aiosqlite
 from config import logger
-from utils.crypto import encrypt_email, decrypt_email
+from utils.mask import mask_email
 import os
 from config import DB_PATH
 
@@ -56,27 +56,26 @@ async def initialize_db():
 
 async def set_user_email(user_id: int, plain_email: str):
     """
-    Шифрует plain_email и записывает в поле Email для данного user_id.
+    Записывает plain_email в поле Email для данного user_id.
     """
-    enc_email = encrypt_email(plain_email)  # зашифровываем
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             "UPDATE Users SET Approve = TRUE, WasApproved = TRUE, Email=? WHERE UserID=?",
-            (enc_email, user_id)
+            (plain_email, user_id)
         )
         await db.commit()
-    logger.info(f"set_user_email: user_id={user_id}, email=ЗАШИФРОВАНО")
+    masked_email = mask_email(plain_email)
+    logger.info(f"set_user_email: user_id={user_id}, email={masked_email}")
 
 
 async def get_user_email(user_id: int) -> str:
     """
-    Читает поле Email (в зашифрованном виде) и расшифровывает.
-    Возвращает plain_email (или пустую строку).
+    Читает поле Email и возвращает его значение.
+    Возвращает email (или пустую строку).
     """
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("SELECT Email FROM Users WHERE UserID=?", (user_id,))
         row = await cursor.fetchone()
         if row and row[0]:
-            dec_email = decrypt_email(row[0])
-            return dec_email
+            return row[0]
         return ""

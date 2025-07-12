@@ -17,8 +17,8 @@ DB_PATH = os.getenv("DB_PATH", "./data/winbot.db")
 EXPORT_DIR = os.getenv("EXPORT_DIR", "./export")
 IMPORT_DIR = os.getenv("IMPORT_DIR", "./import")
 
-# Импортируем функцию шифрования email
-from utils.crypto import encrypt_email
+# Импортируем функцию маскирования email
+from utils.mask import mask_email
 
 # -------------------------
 #   Создадим таблицу Company
@@ -40,12 +40,10 @@ async def ensure_company_table():
 async def add_fake_user():
     """
     Раз в минуту добавляет фейкового пользователя в таблицу Users проекта.
-    Email шифруется с использованием encrypt_email.
+    Email сохраняется в открытом виде.
     """
     user_id = random.randint(1000000, 9999999)
     plain_email = f"test_{user_id}@winline.ru"
-    # Шифруем email
-    encrypted_email = encrypt_email(plain_email)
     
     # 80% сразу прошли "верификацию"
     approve = random.random() < 0.8
@@ -55,10 +53,11 @@ async def add_fake_user():
         await db.execute("""
             INSERT INTO Users (UserID, Email, Approve, WasApproved, Synced, Notified, Banned)
             VALUES (?, ?, ?, ?, 0, 0, 0)
-        """, (user_id, encrypted_email, approve, was_approved))
+        """, (user_id, plain_email, approve, was_approved))
         await db.commit()
 
-    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Added fake user_id={user_id}, approve={approve}")
+    masked_email = mask_email(plain_email)
+    print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Added fake user_id={user_id}, approve={approve}, email={masked_email}")
 
 # -------------------------
 #   Эмулируем "действия компании" раз в 8 минут
