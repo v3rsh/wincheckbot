@@ -10,13 +10,14 @@ NOTIFICATION_TEXT = (
     "Чтобы продолжить пользоваться рабочими группами, необходимо вновь пройти верификацию."
 )
 
-async def notify_newly_fired(user_ids: list[int]):
+async def notify_newly_fired(user_ids: list[int]) -> list[int]:
     """
     Отправляет уведомления тем, у кого Notified=FALSE, 
     и затем проставляет Notified=TRUE.
+    Возвращает список UserID пользователей, которым были отправлены уведомления.
     """
     if not user_ids:
-        return
+        return []
 
     async with aiosqlite.connect(DB_PATH) as db:
         # Выбираем только тех, у кого Notified=FALSE
@@ -30,28 +31,31 @@ async def notify_newly_fired(user_ids: list[int]):
 
     if not to_notify:
         logger.info("Все пользователи из списка уже получили уведомление (Notified=TRUE).")
-        return
+        return []
 
     bot = Bot(token=API_TOKEN)
-    notified_count = 0
+    notified_users = []
     try:
         for uid in to_notify:
             try:
                 await bot.send_message(uid, NOTIFICATION_TEXT)
                 logger.info(f"[notify_newly_fired] Отправлено уведомление user_id={uid}")
-                notified_count += 1
+                notified_users.append(uid)
             except Exception as e:
                 logger.warning(f"[notify_newly_fired] Не удалось отправить сообщение user_id={uid}: {e}")
 
         # Проставляем Notified=TRUE тем, кому отправляли
-        async with aiosqlite.connect(DB_PATH) as db:
-            placeholders = ",".join("?" * len(to_notify))
-            await db.execute(
-                f"UPDATE Users SET Notified=TRUE WHERE UserID IN ({placeholders})",
-                tuple(to_notify)
-            )
-            await db.commit()
-        logger.info(f"[notify_newly_fired] Установлен Notified=TRUE для {notified_count} пользователей.")
+        if notified_users:
+            async with aiosqlite.connect(DB_PATH) as db:
+                placeholders = ",".join("?" * len(notified_users))
+                await db.execute(
+                    f"UPDATE Users SET Notified=TRUE WHERE UserID IN ({placeholders})",
+                    tuple(notified_users)
+                )
+                await db.commit()
+            logger.info(f"[notify_newly_fired] Установлен Notified=TRUE для {len(notified_users)} пользователей.")
 
     finally:
         await bot.session.close()
+    
+    return notified_users

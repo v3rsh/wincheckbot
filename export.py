@@ -48,6 +48,12 @@ async def main():
 
         if not rows:
             logger.info("Нет пользователей для экспорта (Approve=TRUE, Synced=FALSE).")
+            # Записываем в SyncHistory даже при отсутствии пользователей
+            await db.execute("""
+                INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
+                VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
+            """, ("export", out_filename, 0, "Нет пользователей для экспорта"))
+            await db.commit()
             return
 
         to_update_ids = []
@@ -74,6 +80,12 @@ async def main():
 
         if exported_count == 0:
             logger.info("Фактически никто не попал в выгрузку (из-за EXCLUDED_EMAILS). Прерываем.")
+            # Записываем в SyncHistory при отсутствии экспортированных пользователей
+            await db.execute("""
+                INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
+                VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
+            """, ("export", out_filename, 0, "Все пользователи исключены из-за EXCLUDED_EMAILS"))
+            await db.commit()
             return
 
         # 3) Обновляем Synced=TRUE
@@ -82,10 +94,20 @@ async def main():
         await db.execute(query, tuple(to_update_ids))
         await db.commit()
 
+        # Получаем список UserID для комментария
+        cursor = await db.execute("""
+            SELECT UserID FROM Users WHERE ID IN ({})
+        """.format(placeholders), tuple(to_update_ids))
+        user_ids = [str(row[0]) for row in await cursor.fetchall()]
+        user_ids_str = ", ".join(user_ids)
+
+        # Логируем список UserID для отладки
+        logger.info(f"Экспортированные UserID: {user_ids_str}")
+
         await db.execute("""
-            INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate)
-            VALUES (?, ?, ?, DATETIME('now', 'localtime'))
-        """, ("export", out_filename, exported_count))
+            INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
+            VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
+        """, ("export", out_filename, exported_count, f"UserIDs: {user_ids_str}"))
         await db.commit()
     
     logger.info("=== Экспорт завершён. ===\n")

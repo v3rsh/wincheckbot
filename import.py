@@ -102,20 +102,46 @@ async def main():
     
     # 3) Снимаем Approve=TRUE тем, кто не в списке (и не в EXCLUDED_EMAILS)
     changed_users = await process_unapproved_in_db(user_ids, filename)
+    if changed_users:
+        changed_ids_str = ", ".join(map(str, changed_users))
+        logger.info(f"Уволено {len(changed_users)} пользователей: {changed_ids_str}")
+    else:
+        changed_ids_str = ""
+        logger.info("Нет пользователей для увольнения.")
     
     # 3.1) Восстанавливаем доступ пользователям, которые ранее были забанены, но теперь в списке
     restored_users = await restore_banned_users(user_ids)
     if restored_users:
-        logger.info(f"Восстановлен доступ для {len(restored_users)} пользователей, которые ранее были забанены.")
+        restored_ids_str = ", ".join(map(str, restored_users))
+        logger.info(f"Восстановлен доступ для {len(restored_users)} пользователей: {restored_ids_str}")
+    else:
+        restored_ids_str = ""
+        logger.info("Нет пользователей для восстановления доступа.")
     
     # 4) Отправляем уведомления только тем, кому ещё не отправляли
+    notified_users = []
     if changed_users:
         logger.info(f"Формирование уведомлений для {len(changed_users)} уволенных.")
-        await notify_newly_fired(changed_users)
+        notified_users = await notify_newly_fired(changed_users)
+        if notified_users:
+            notified_ids_str = ", ".join(map(str, notified_users))
+            logger.info(f"Отправлены уведомления {len(notified_users)} пользователям: {notified_ids_str}")
+        else:
+            logger.info("Уведомления не были отправлены.")
     else:
         logger.info("Никому не нужно отправлять уведомления.")
 
-    await write_sync_history("import", filename, len(user_ids), comment=f"success (восстановлено: {len(restored_users)})")
+    # Формируем комментарий для SyncHistory
+    comment_parts = []
+    if restored_users:
+        comment_parts.append(f"восстановлено: {len(restored_users)} ({restored_ids_str})")
+    if changed_users:
+        comment_parts.append(f"уволено: {len(changed_users)} ({changed_ids_str})")
+    if notified_users:
+        comment_parts.append(f"уведомлено: {len(notified_users)} ({', '.join(map(str, notified_users))})")
+    
+    comment = f"success ({'; '.join(comment_parts)})" if comment_parts else "success"
+    await write_sync_history("import", filename, len(user_ids), comment=comment)
 
     # 5) Переносим обработанный файл в ./import/archived
     archive_import_file(filename, success=True)
