@@ -67,16 +67,29 @@ def show_fsm_keys(user_id: int, chat_id: int = None, redis_url: str = "redis://l
     ]
     
     found = False
+    seen_keys = set()  # Множество для отслеживания уже найденных ключей
+    
     for pattern in patterns:
         print(f"\nПоиск ключей по шаблону: {pattern}")
+        pattern_found = False
+        
         for key in r.scan_iter(match=pattern):
+            key_str = key.decode()
+            
+            # Пропускаем уже найденные ключи
+            if key_str in seen_keys:
+                continue
+                
+            seen_keys.add(key_str)
             found = True
+            pattern_found = True
+            
             try:
                 value = r.get(key)
-                print(f"Ключ: {key.decode()}")
+                print(f"Ключ: {key_str}")
                 if value:
                     # Если это данные FSM, попробуем декодировать JSON для лучшей читаемости
-                    if "data" in key.decode():
+                    if "data" in key_str:
                         try:
                             data = json.loads(value)
                             print(f"Значение (декодировано): {json.dumps(data, ensure_ascii=False, indent=2)}")
@@ -89,6 +102,9 @@ def show_fsm_keys(user_id: int, chat_id: int = None, redis_url: str = "redis://l
                 print("-" * 50)
             except Exception as e:
                 print(f"Ошибка при чтении ключа {key}: {e}")
+        
+        if not pattern_found:
+            print("Ключи по данному шаблону не найдены.")
     
     if not found:
         print(f"Ключи для пользователя {user_id} не найдены.")
