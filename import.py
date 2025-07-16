@@ -17,6 +17,7 @@ from utils.file_ops import (
 from utils.import_logic import process_unapproved_in_db, restore_banned_users
 from utils.notify import notify_newly_fired
 import aiosqlite
+from database import get_user_email, get_emails_by_user_ids
 
 os.getcwd()
 
@@ -103,7 +104,8 @@ async def main():
     # 3) Снимаем Approve=TRUE тем, кто не в списке (и не в EXCLUDED_EMAILS)
     changed_users = await process_unapproved_in_db(user_ids, filename)
     if changed_users:
-        changed_ids_str = ", ".join(map(str, changed_users))
+        changed_emails = await get_emails_by_user_ids(changed_users)
+        changed_ids_str = ", ".join(f"{uid}:{changed_emails.get(uid, '')}" for uid in changed_users)
         logger.info(f"Уволено {len(changed_users)} пользователей: {changed_ids_str}")
     else:
         changed_ids_str = ""
@@ -112,7 +114,8 @@ async def main():
     # 3.1) Восстанавливаем доступ пользователям, которые ранее были забанены, но теперь в списке
     restored_users = await restore_banned_users(user_ids)
     if restored_users:
-        restored_ids_str = ", ".join(map(str, restored_users))
+        restored_emails = await get_emails_by_user_ids(restored_users)
+        restored_ids_str = ", ".join(f"{uid}:{restored_emails.get(uid, '')}" for uid in restored_users)
         logger.info(f"Восстановлен доступ для {len(restored_users)} пользователей: {restored_ids_str}")
     else:
         restored_ids_str = ""
@@ -124,11 +127,14 @@ async def main():
         logger.info(f"Формирование уведомлений для {len(changed_users)} уволенных.")
         notified_users = await notify_newly_fired(changed_users)
         if notified_users:
-            notified_ids_str = ", ".join(map(str, notified_users))
+            notified_emails = await get_emails_by_user_ids(notified_users)
+            notified_ids_str = ", ".join(f"{uid}:{notified_emails.get(uid, '')}" for uid in notified_users)
             logger.info(f"Отправлены уведомления {len(notified_users)} пользователям: {notified_ids_str}")
         else:
+            notified_ids_str = ""
             logger.info("Уведомления не были отправлены.")
     else:
+        notified_ids_str = ""
         logger.info("Никому не нужно отправлять уведомления.")
 
     # Формируем комментарий для SyncHistory
@@ -138,7 +144,7 @@ async def main():
     if changed_users:
         comment_parts.append(f"уволено: {len(changed_users)} ({changed_ids_str})")
     if notified_users:
-        comment_parts.append(f"уведомлено: {len(notified_users)} ({', '.join(map(str, notified_users))})")
+        comment_parts.append(f"уведомлено: {len(notified_users)} ({notified_ids_str})")
     
     comment = f"success ({'; '.join(comment_parts)})" if comment_parts else "success"
     await write_sync_history("import", filename, len(user_ids), comment=comment)

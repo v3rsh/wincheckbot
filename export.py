@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from database import get_user_email
+from database import get_user_email, get_emails_by_user_ids
 from config import EXCLUDED_EMAILS, logger, DB_PATH
 
 OUTPUT_DIR = "./export"
@@ -98,8 +98,10 @@ async def main():
         cursor = await db.execute("""
             SELECT UserID FROM Users WHERE ID IN ({})
         """.format(placeholders), tuple(to_update_ids))
-        user_ids = [str(row[0]) for row in await cursor.fetchall()]
-        user_ids_str = ", ".join(user_ids)
+        user_ids = [row[0] for row in await cursor.fetchall()]
+        # Получаем email'ы пакетно
+        user_emails = await get_emails_by_user_ids(user_ids)
+        user_ids_str = ", ".join(f"{uid}:{user_emails.get(uid, '')}" for uid in user_ids)
 
         # Логируем список UserID для отладки
         logger.info(f"Экспортированные UserID: {user_ids_str}")

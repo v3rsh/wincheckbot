@@ -15,7 +15,8 @@ from aiogram import Bot
 from dotenv import load_dotenv
 
 load_dotenv()
-from config import logger, API_TOKEN, DB_PATH 
+from config import logger, API_TOKEN, DB_PATH
+from database import get_emails_by_user_ids, get_group_titles_by_chat_ids 
 
 # Импортируем из need_clean.py
 from utils.need_clean import (
@@ -86,6 +87,7 @@ async def check_import_users_in_db(db: aiosqlite.Connection):
 async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
     """
     Очищает все группы с пометкой New=TRUE от пользователей с Approve=FALSE
+    Возвращает (количество_удаленных, список_забаненных_user_id)
     """
     # Получаем список новых групп
     cursor = await db.execute("""
@@ -97,7 +99,7 @@ async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
     
     if not new_groups:
         logger.info("Нет новых групп для полной очистки")
-        return 0
+        return 0, []
 
     # Получаем всех пользователей с Approve=FALSE
     cursor = await db.execute("""
@@ -107,15 +109,30 @@ async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
     """)
     unapproved_users = [row[0] for row in await cursor.fetchall()]
     
+    if not unapproved_users:
+        logger.info("Нет пользователей с Approve=FALSE для очистки новых групп")
+        return 0, []
+    
+    # Получаем email пользователей и названия групп пакетно
+    user_emails = await get_emails_by_user_ids(unapproved_users)
+    group_titles = await get_group_titles_by_chat_ids(new_groups)
+    
     removed_count = 0
+    banned_users = []
+    
     for chat_id in new_groups:
+        group_name = group_titles.get(chat_id, f"Group_{chat_id}")
         for user_id in unapproved_users:
             try:
                 await bot.ban_chat_member(chat_id, user_id)
-                logger.info(f"[cleaner:new_groups] Удалён user_id={user_id} из нового чата={chat_id}")
+                user_email = user_emails.get(user_id, "")
+                logger.info(f"[cleaner:new_groups] Удалён user_id={user_id}:{user_email} из нового чата={chat_id}:{group_name}")
                 removed_count += 1
+                if user_id not in banned_users:
+                    banned_users.append(user_id)
             except Exception as e:
-                logger.warning(f"[cleaner:new_groups] Не удалось удалить user_id={user_id} из {chat_id}: {e}")
+                user_email = user_emails.get(user_id, "")
+                logger.warning(f"[cleaner:new_groups] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
 
         # Снимаем пометку New с группы
         await db.execute("""
@@ -124,9 +141,9 @@ async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
             WHERE ChatID=?
         """, (chat_id,))
         await db.commit()
-        logger.info(f"Группа {chat_id} очищена и помечена как не новая")
+        logger.info(f"Группа {chat_id}:{group_name} очищена и помечена как не новая")
 
-    return removed_count
+    return removed_count, banned_users
 
 async def main():
     logger.info("=== [cleaner.py] Запущен сценарий очистки ===")
@@ -166,7 +183,7 @@ async def main():
                  WHERE Approve=FALSE
                    AND Banned=FALSE
             """)
-            unapproved_users = await cursor.fetchall()
+            unapproved_users = [row[0] for row in await cursor.fetchall()]
             if not unapproved_users:
                 logger.info("Нет пользователей Approve=FALSE и Banned=FALSE. Выходим.")
                 await db.execute("""
@@ -178,17 +195,23 @@ async def main():
 
             logger.info(f"Найдено {len(unapproved_users)} пользователей для удаления из групп.")
 
+            # Получаем email пользователей и названия групп пакетно
+            user_emails = await get_emails_by_user_ids(unapproved_users)
+            group_titles = await get_group_titles_by_chat_ids(eligible_groups)
+
             # 3) Удаляем этих пользователей из групп
             regular_removed_count = 0
-            for (user_id,) in unapproved_users:
-                logger.info(f"[cleaner.py] Type of eligible_groups: {type(eligible_groups)}")
-                logger.info(f"[cleaner.py] First 5 elements in eligible_groups: {eligible_groups[:5] if eligible_groups else 'EMPTY'}")
+            regular_banned_users = []
+            
+            for user_id in unapproved_users:
+                user_email = user_emails.get(user_id, "")
                 for chat_id in eligible_groups:
+                    group_name = group_titles.get(chat_id, f"Group_{chat_id}")
                     try:
                         await bot.ban_chat_member(chat_id, user_id)
-                        logger.info(f"[cleaner] Удалён user_id={user_id} из чата={chat_id}")
+                        logger.info(f"[cleaner] Удалён user_id={user_id}:{user_email} из чата={chat_id}:{group_name}")
                     except Exception as e:
-                        logger.warning(f"[cleaner] Не удалось удалить user_id={user_id} из {chat_id}: {e}")
+                        logger.warning(f"[cleaner] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
 
                 # Ставим Banned=TRUE
                 await db.execute("""
@@ -197,26 +220,39 @@ async def main():
                      WHERE UserID=?
                 """, (user_id,))
                 regular_removed_count += 1
+                regular_banned_users.append(user_id)
 
             await db.commit()
 
             # 4) Очистка новых групп
-            new_groups_removed_count = await clean_new_groups(db, bot)
+            new_groups_removed_count, new_groups_banned_users = await clean_new_groups(db, bot)
             
-            # 5) Пишем в SyncHistory общий результат
+            # 5) Формируем комментарий для SyncHistory
+            all_banned_users = list(set(regular_banned_users + new_groups_banned_users))
             total_removed = regular_removed_count + new_groups_removed_count
+            
+            if all_banned_users:
+                banned_emails = await get_emails_by_user_ids(all_banned_users)
+                banned_list = ", ".join(f"{uid}:{banned_emails.get(uid, '')}" for uid in all_banned_users)
+                comment = f"regular:{regular_removed_count}, new_groups:{new_groups_removed_count}; banned: {len(all_banned_users)} ({banned_list})"
+            else:
+                comment = f"regular:{regular_removed_count}, new_groups:{new_groups_removed_count}"
+            
+            # Пишем в SyncHistory общий результат
             await db.execute("""
                 INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
                 VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
-            """, ("cleaner", "-", total_removed, 
-                  f"regular:{regular_removed_count}, new_groups:{new_groups_removed_count}"))
+            """, ("cleaner", "-", total_removed, comment))
             await db.commit()
 
         except Exception as e:
             logger.exception(f"Неожиданная ошибка в cleaner.py: {e}")
         finally:
             await bot.session.close()
-            logger.info(f"Сессия бота закрыта. Удалено всего {total_removed} записей (regular:{regular_removed_count}, new_groups:{new_groups_removed_count})")
+            if 'all_banned_users' in locals() and all_banned_users:
+                logger.info(f"Сессия бота закрыта. Удалено всего {total_removed} записей (regular:{regular_removed_count}, new_groups:{new_groups_removed_count}). Забанено пользователей: {len(all_banned_users)}")
+            else:
+                logger.info(f"Сессия бота закрыта. Удалено всего записей: 0")
 
 if __name__ == "__main__":
     asyncio.run(main())

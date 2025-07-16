@@ -79,3 +79,29 @@ async def get_user_email(user_id: int) -> str:
         if row and row[0]:
             return row[0]
         return ""
+
+async def get_emails_by_user_ids(user_ids: list[int]) -> dict[int, str]:
+    """
+    Возвращает словарь {user_id: email} для списка user_ids одним SQL-запросом.
+    """
+    if not user_ids:
+        return {}
+    placeholders = ",".join(["?"] * len(user_ids))
+    query = f"SELECT UserID, Email FROM Users WHERE UserID IN ({placeholders})"
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(query, tuple(user_ids))
+        rows = await cursor.fetchall()
+    return {user_id: email for user_id, email in rows}
+
+async def get_group_titles_by_chat_ids(chat_ids: list[int]) -> dict[int, str]:
+    """
+    Возвращает словарь {chat_id: title} для списка chat_ids одним SQL-запросом.
+    """
+    if not chat_ids:
+        return {}
+    placeholders = ",".join(["?"] * len(chat_ids))
+    query = f"SELECT ChatID, Title FROM Groups WHERE ChatID IN ({placeholders})"
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(query, tuple(chat_ids))
+        rows = await cursor.fetchall()
+    return {chat_id: title or f"Group_{chat_id}" for chat_id, title in rows}
