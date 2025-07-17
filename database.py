@@ -58,14 +58,14 @@ async def set_user_email(user_id: int, plain_email: str):
     """
     Записывает plain_email в поле Email для данного user_id.
     """
+    final_email = plain_email.strip().lower()
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             "UPDATE Users SET Approve = TRUE, WasApproved = TRUE, Email=? WHERE UserID=?",
-            (plain_email, user_id)
+            (final_email, user_id)
         )
         await db.commit()
-    masked_email = mask_email(plain_email)
-    logger.info(f"set_user_email: user_id={user_id}, email={masked_email}")
+    logger.info(f"set_user_email: user_id={user_id}, email={final_email}")
 
 
 async def get_user_email(user_id: int) -> str:
