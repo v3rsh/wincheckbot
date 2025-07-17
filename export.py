@@ -67,12 +67,13 @@ async def main():
             for row_id, user_id, enc_email in rows:
                 # Расшифровываем email
                 plain_email = await get_user_email(user_id)
+                export_email = plain_email.strip().lower()
 
                 # Пропускаем, если email в EXCLUDED_EMAILS
-                if plain_email.strip().lower() in [ex.strip().lower() for ex in EXCLUDED_EMAILS if ex.strip()]:
+                if export_email in [ex.strip().lower() for ex in EXCLUDED_EMAILS if ex.strip()]:
                     continue
 
-                writer.writerow([user_id, plain_email])
+                writer.writerow([user_id, export_email])
                 to_update_ids.append(row_id)
                 exported_count += 1
 
