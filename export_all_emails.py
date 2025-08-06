@@ -63,7 +63,11 @@ async def main():
                 # Пропускаем, если email в EXCLUDED_EMAILS
                 if plain_email.strip().lower() in [ex.strip().lower() for ex in EXCLUDED_EMAILS if ex.strip()]:
                     continue
-
+                
+                plain_email = plain_email.strip().lower()
+                if plain_email == "":
+                    continue
+                
                 writer.writerow([user_id, plain_email])
                 exported_count += 1
 

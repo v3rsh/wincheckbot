@@ -15,3 +15,4 @@ redis_data/
 .cursor/rules/project-txt-rule.mdc
 .cursor/rules/rc-rule-1.mdc
 .cursor/rules/universal-rule.mdc
+analyze_users.py
