@@ -16,4 +16,5 @@ redis_data/
 .cursor/rules/rc-rule-1.mdc
 .cursor/rules/universal-rule.mdc
 analyze_users.py
+check_channel_users.py
 
