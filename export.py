@@ -85,7 +85,7 @@ async def main():
             await db.execute("""
                 INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
                 VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
-            """, ("export", out_filename, 0, "Все пользователи исключены из-за EXCLUDED_EMAILS"))
+            """, ("export", out_filename, 0, "Фактически никто не попал в выгрузку (из-за EXCLUDED_EMAILS)"))
             await db.commit()
             return
 
