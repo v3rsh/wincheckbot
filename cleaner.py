@@ -15,8 +15,8 @@ from aiogram import Bot
 from dotenv import load_dotenv
 
 load_dotenv()
-from config import logger, API_TOKEN, DB_PATH
-from database import get_emails_by_user_ids, get_group_titles_by_chat_ids 
+from config import logger, API_TOKEN, DB_PATH, EXCLUDED_EMAILS
+from database import get_emails_by_user_ids, get_group_titles_by_chat_ids, get_user_email 
 
 # Импортируем из need_clean.py
 from utils.need_clean import (
@@ -113,8 +113,23 @@ async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
         logger.info("Нет пользователей с Approve=FALSE для очистки новых групп")
         return 0, []
     
+    # Фильтруем пользователей: исключаем тех, кто в EXCLUDED_EMAILS
+    filtered_users = []
+    for user_id in unapproved_users:
+        plain_email = await get_user_email(user_id)
+        if plain_email:
+            email_lower = plain_email.strip().lower()
+            if email_lower in [ex.strip().lower() for ex in EXCLUDED_EMAILS if ex.strip()]:
+                logger.info(f"[clean_new_groups] Пользователь {user_id}:{plain_email} пропущен - в EXCLUDED_EMAILS")
+                continue
+        filtered_users.append(user_id)
+    
+    if not filtered_users:
+        logger.info("После фильтрации EXCLUDED_EMAILS не осталось пользователей для очистки новых групп")
+        return 0, []
+
     # Получаем email пользователей и названия групп пакетно
-    user_emails = await get_emails_by_user_ids(unapproved_users)
+    user_emails = await get_emails_by_user_ids(filtered_users)
     group_titles = await get_group_titles_by_chat_ids(new_groups)
     
     removed_count = 0
@@ -122,7 +137,7 @@ async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
     
     for chat_id in new_groups:
         group_name = group_titles.get(chat_id, f"Group_{chat_id}")
-        for user_id in unapproved_users:
+        for user_id in filtered_users:
             try:
                 await bot.ban_chat_member(chat_id, user_id)
                 user_email = user_emails.get(user_id, "")
@@ -193,17 +208,45 @@ async def main():
                 await db.commit()
                 return
 
-            logger.info(f"Найдено {len(unapproved_users)} пользователей для удаления из групп.")
+            logger.info(f"Найдено {len(unapproved_users)} пользователей для проверки и удаления из групп.")
+
+            # Фильтруем пользователей: исключаем тех, кто в EXCLUDED_EMAILS
+            filtered_users = []
+            excluded_users = []
+            
+            for user_id in unapproved_users:
+                plain_email = await get_user_email(user_id)
+                if plain_email:
+                    email_lower = plain_email.strip().lower()
+                    if email_lower in [ex.strip().lower() for ex in EXCLUDED_EMAILS if ex.strip()]:
+                        excluded_users.append(user_id)
+                        logger.info(f"Пользователь {user_id}:{plain_email} пропущен - в EXCLUDED_EMAILS")
+                        continue
+                filtered_users.append(user_id)
+            
+            if excluded_users:
+                logger.info(f"Исключено из очистки {len(excluded_users)} пользователей из EXCLUDED_EMAILS.")
+            
+            if not filtered_users:
+                logger.info("После фильтрации EXCLUDED_EMAILS не осталось пользователей для удаления.")
+                await db.execute("""
+                    INSERT INTO SyncHistory (SyncType, FileName, RecordCount, SyncDate, Comment)
+                    VALUES (?, ?, ?, DATETIME('now', 'localtime'), ?)
+                """, ("cleaner", "-", 0, "no users after EXCLUDED_EMAILS filter"))
+                await db.commit()
+                return
+
+            logger.info(f"После фильтрации осталось {len(filtered_users)} пользователей для удаления из групп.")
 
             # Получаем email пользователей и названия групп пакетно
-            user_emails = await get_emails_by_user_ids(unapproved_users)
+            user_emails = await get_emails_by_user_ids(filtered_users)
             group_titles = await get_group_titles_by_chat_ids(eligible_groups)
 
-            # 3) Удаляем этих пользователей из групп
+            # 3) Удаляем отфильтрованных пользователей из групп
             regular_removed_count = 0
             regular_banned_users = []
             
-            for user_id in unapproved_users:
+            for user_id in filtered_users:
                 user_email = user_emails.get(user_id, "")
                 for chat_id in eligible_groups:
                     group_name = group_titles.get(chat_id, f"Group_{chat_id}")

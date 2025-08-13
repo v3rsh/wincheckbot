@@ -46,6 +46,52 @@ async def process_unapproved_in_db(active_user_ids: set[int], in_filename: str) 
 
     return changed_users
 
+async def protect_excluded_users() -> list[int]:
+    """
+    Дополнительная защита: устанавливаем Approve=TRUE для всех пользователей из EXCLUDED_EMAILS,
+    независимо от их текущего статуса Synced.
+    Возвращаем список ID пользователей, которым восстановлен доступ.
+    """
+    protected_users = []
+    excluded_emails_lower = [ex.strip().lower() for ex in EXCLUDED_EMAILS if ex.strip()]
+    
+    if not excluded_emails_lower:
+        return protected_users
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Получаем всех пользователей
+        cursor = await db.execute("SELECT UserID FROM Users")
+        all_users = await cursor.fetchall()
+        
+        for (user_id,) in all_users:
+            plain_email = await get_user_email(user_id)
+            if plain_email:
+                email_lower = plain_email.strip().lower()
+                if email_lower in excluded_emails_lower:
+                    # Проверяем текущий статус
+                    cursor_check = await db.execute("""
+                        SELECT Approve, Banned FROM Users WHERE UserID = ?
+                    """, (user_id,))
+                    current_status = await cursor_check.fetchone()
+                    
+                    if current_status:
+                        approve, banned = current_status
+                        if not approve or banned:
+                            # Восстанавливаем доступ для исключенного пользователя
+                            await db.execute("""
+                                UPDATE Users 
+                                SET Approve = TRUE, Banned = FALSE 
+                                WHERE UserID = ?
+                            """, (user_id,))
+                            protected_users.append(user_id)
+                            logger.info(f"Защищен исключенный пользователь {user_id}:{plain_email} - Approve=TRUE, Banned=FALSE")
+        
+        if protected_users:
+            await db.commit()
+            logger.info(f"Защищено {len(protected_users)} исключенных пользователей после импорта.")
+    
+    return protected_users
+
 async def restore_banned_users(active_user_ids: set[int]) -> list[int]:
     """
     Восстанавливаем доступ пользователям, которые ранее были забанены или потеряли доступ, 

@@ -14,7 +14,7 @@ from utils.file_ops import (
     archive_import_file,
     parse_csv_users
 )
-from utils.import_logic import process_unapproved_in_db, restore_banned_users
+from utils.import_logic import process_unapproved_in_db, restore_banned_users, protect_excluded_users
 from utils.notify import notify_newly_fired
 import aiosqlite
 from database import get_user_email, get_emails_by_user_ids
@@ -121,6 +121,16 @@ async def main():
         restored_ids_str = ""
         logger.info("Нет пользователей для восстановления доступа.")
     
+    # 3.2) Дополнительная защита: обеспечиваем доступ для всех пользователей из EXCLUDED_EMAILS
+    protected_users = await protect_excluded_users()
+    if protected_users:
+        protected_emails = await get_emails_by_user_ids(protected_users)
+        protected_ids_str = ", ".join(f"{uid}:{protected_emails.get(uid, '')}" for uid in protected_users)
+        logger.info(f"Защищено {len(protected_users)} исключенных пользователей: {protected_ids_str}")
+    else:
+        protected_ids_str = ""
+        logger.info("Дополнительная защита исключенных пользователей не требовалась.")
+    
     # 4) Отправляем уведомления только тем, кому ещё не отправляли
     notified_users = []
     if changed_users:
@@ -143,6 +153,8 @@ async def main():
         comment_parts.append(f"восстановлено: {len(restored_users)} ({restored_ids_str})")
     if changed_users:
         comment_parts.append(f"уволено: {len(changed_users)} ({changed_ids_str})")
+    if protected_users:
+        comment_parts.append(f"защищено: {len(protected_users)} ({protected_ids_str})")
     if notified_users:
         comment_parts.append(f"уведомлено: {len(notified_users)} ({notified_ids_str})")
     
