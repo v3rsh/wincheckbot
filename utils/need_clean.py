@@ -11,27 +11,10 @@ from os import listdir
 from os.path import isfile, join
 
 # Здесь идут твои функции:
-# 1) ensure_comment_column(db)
-# 2) check_if_need_to_skip(db)
-# 3) check_export_dir()
-# 4) write_skip_history(db, reason)
-# 5) get_eligible_groups(db)
-
-async def ensure_comment_column(db: aiosqlite.Connection):
-    """
-    Проверяем, есть ли колонка Comment в SyncHistory.
-    Если нет — добавляем.
-    """
-    try:
-        await db.execute("ALTER TABLE SyncHistory ADD COLUMN Comment TEXT")
-        await db.commit()
-        logger.info("[ensure_comment_column] Добавлена колонка Comment в SyncHistory.")
-    except aiosqlite.OperationalError as e:
-        # Если ошибка "duplicate column name", то всё ок, колонка уже есть.
-        if "duplicate column name" in str(e).lower():
-            logger.info("[ensure_comment_column] Колонка Comment уже существует, пропускаем.")
-        else:
-            logger.warning(f"[ensure_comment_column] Ошибка при добавлении Comment: {e}")
+# 1) check_if_need_to_skip(db)
+# 2) check_export_dir()
+# 3) write_skip_history(db, reason)
+# 4) get_eligible_groups(db)
 
 
 async def check_if_need_to_skip(db: aiosqlite.Connection) -> Tuple[bool, str]:

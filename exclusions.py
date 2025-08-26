@@ -47,14 +47,14 @@ async def process_excluded_users(db, excluded_emails_lower, bot):
             
         elif approve and banned:
             # Approve=TRUE, Banned=TRUE - профилактический unban
-            await unban_user(user_id)
+            await unban_user(user_id, bot)
             await db.execute("UPDATE Users SET Banned = FALSE WHERE UserID = ?", (user_id,))
             logger.info(f"Профилактический unban для {user_id}:{email}")
             unbanned_count += 1
             
         elif not approve and banned and was_approved:
             # Approve=FALSE, Banned=TRUE, WasApproved=TRUE - полное восстановление
-            await unban_user(user_id)
+            await unban_user(user_id, bot)
             await db.execute("""
                 UPDATE Users SET Approve = TRUE, Banned = FALSE WHERE UserID = ?
             """, (user_id,))
@@ -80,7 +80,7 @@ async def process_excluded_users(db, excluded_emails_lower, bot):
             
         elif not approve and banned and not was_approved:
             # Approve=FALSE, Banned=TRUE, WasApproved=FALSE - только unban
-            await unban_user(user_id)
+            await unban_user(user_id, bot)
             await db.execute("""
                 UPDATE Users SET Approve = TRUE, Banned = FALSE WHERE UserID = ?
             """, (user_id,))
@@ -89,7 +89,7 @@ async def process_excluded_users(db, excluded_emails_lower, bot):
             
         elif not approve and not banned:
             # Approve=FALSE, Banned=FALSE - установка Approve=TRUE
-            await unban_user(user_id)
+            await unban_user(user_id, bot)
             await db.execute("UPDATE Users SET Approve = TRUE WHERE UserID = ?", (user_id,))
             logger.info(f"Активация для {user_id}:{email}")
             approved_count += 1

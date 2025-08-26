@@ -55,7 +55,7 @@ async def handle_code_input(message: types.Message, state: FSMContext):
         # Очищаем временные данные и сбрасываем все счетчики
         await state.update_data(code=None, code_attempts=0, email=None)
         await reset_email_send_count(state)  # Сбрасываем счетчик отправки email
-        await unban_user(user_id)
+        await unban_user(user_id, message.bot)
 
         # 3. Отправляем сообщение о том, что код подтверждён
         logger.info(f"[code_handler] user_id={user_id} -> передаём invite_count=0 в generate_and_send_invite")

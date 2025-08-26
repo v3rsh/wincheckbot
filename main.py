@@ -16,9 +16,10 @@ async def main():
     logger.info("Запуск бота.")
     await initialize_db()
     await check_exclusions()
-    # Инициализация бота и диспетчера
-    bot = Bot(token=API_TOKEN)
+    
+    # Инициализация Redis и бота
     redis = Redis(host='redis', port=6379, db=5)
+    bot = Bot(token=API_TOKEN)
     storage = RedisStorage(redis=redis, key_builder=DefaultKeyBuilder(prefix="pulse_fsm"))    
     dp = Dispatcher(storage=storage)
 
@@ -36,7 +37,14 @@ async def main():
     dp.include_router(general_handler)
 
     logger.info("Бот успешно запущен!")
-    await dp.start_polling(bot)
+    
+    try:
+        await dp.start_polling(bot)
+    finally:
+        # Закрываем все соединения при завершении
+        await bot.session.close()
+        await redis.aclose()
+        logger.info("Все соединения закрыты.")
 
 if __name__ == "__main__":
     try:

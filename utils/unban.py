@@ -3,13 +3,17 @@ import aiosqlite
 from aiogram import Bot
 from config import logger, API_TOKEN, DB_PATH
 
-async def unban_user(user_id: int):
+async def unban_user(user_id: int, bot: Bot = None):
     """
     Проверяет, стоит ли у пользователя Banned=TRUE.
     Если да — снимает бан в группах, где у бота есть права.
     Затем проставляет Banned=FALSE.
     """
-    bot = Bot(token=API_TOKEN)
+    if bot is None:
+        bot = Bot(token=API_TOKEN)
+        should_close_session = True
+    else:
+        should_close_session = False
 
     async with aiosqlite.connect(DB_PATH) as db:
         # Проверяем, был ли пользователь забанен
@@ -55,5 +59,6 @@ async def unban_user(user_id: int):
             await db.commit()
             logger.info(f"[unban_user] Пользователь {user_id} теперь Banned=FALSE.")
 
-    await bot.session.close()
+    if should_close_session:
+        await bot.session.close()
 
