@@ -14,31 +14,22 @@ async def process_excluded_users(db, excluded_emails_lower, bot):
     approved_count = 0
     restored_users = []
     
-    # Получаем всех пользователей из исключений с их статусами
+    # Получаем всех пользователей с их email и статусами одним запросом
     cursor = await db.execute("""
-        SELECT UserID FROM Users
+        SELECT UserID, Email, Approve, Banned, WasApproved FROM Users 
+        WHERE Email IS NOT NULL AND Email != ''
     """)
     all_users = await cursor.fetchall()
     
-    for (user_id,) in all_users:
-        email = await get_user_email(user_id)
+    logger.info(f"Проверяем {len(all_users)} пользователей для исключений...")
+    
+    for user_id, email, approve, banned, was_approved in all_users:
         if not email:
             continue
             
         email_lower = email.strip().lower()
         if email_lower not in excluded_emails_lower:
             continue
-            
-        # Получаем текущие статусы
-        cursor_status = await db.execute("""
-            SELECT Approve, Banned, WasApproved FROM Users WHERE UserID = ?
-        """, (user_id,))
-        status = await cursor_status.fetchone()
-        
-        if not status:
-            continue
-            
-        approve, banned, was_approved = status
         
         # Логика обработки по статусам:
         if approve and not banned:
@@ -101,11 +92,13 @@ async def process_non_corporate_emails(db):
     excluded_emails_lower = [email.strip().lower() for email in EXCLUDED_EMAILS if email.strip()]
     unapproved_count = 0
     
-    cursor = await db.execute("SELECT UserID FROM Users")
+    # Получаем всех пользователей с их email и статусом одним запросом
+    cursor = await db.execute("SELECT UserID, Email, Approve FROM Users WHERE Email IS NOT NULL AND Email != ''")
     all_users = await cursor.fetchall()
     
-    for (user_id,) in all_users:
-        email = await get_user_email(user_id)
+    logger.info(f"Проверяем {len(all_users)} пользователей с email...")
+    
+    for user_id, email, approve in all_users:
         if not email:
             continue
             
@@ -115,10 +108,7 @@ async def process_non_corporate_emails(db):
         if (not email_lower.endswith(f"@{WORK_MAIL.lower()}") and 
             email_lower not in excluded_emails_lower):
             
-            cursor_check = await db.execute("SELECT Approve FROM Users WHERE UserID = ?", (user_id,))
-            current_status = await cursor_check.fetchone()
-            
-            if current_status and current_status[0] == 1:  # Если был Approve=TRUE
+            if approve == 1:  # Если был Approve=TRUE
                 await db.execute("UPDATE Users SET Approve = FALSE WHERE UserID = ?", (user_id,))
                 logger.info(f"Снят доступ у {user_id}:{email} - некорпоративный email")
                 unapproved_count += 1
@@ -150,13 +140,18 @@ async def check_exclusions():
                 restored_users = []
             
             # 2. Обрабатываем некорпоративные email
+            logger.info("Начинаем обработку некорпоративных email...")
             unapproved_count = await process_non_corporate_emails(db)
+            logger.info(f"Обработка некорпоративных email завершена. Результат: {unapproved_count}")
             
         finally:
             await bot.session.close()
+            logger.info("HTTP сессия бота закрыта")
 
         # Фиксируем изменения в базе
+        logger.info("Фиксируем изменения в базе данных...")
         await db.commit()
+        logger.info("Изменения в БД зафиксированы")
 
         # Запись в SyncHistory
         total_excluded_processed = restored_count + unbanned_count + approved_count
