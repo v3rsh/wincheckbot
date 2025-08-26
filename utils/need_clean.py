@@ -40,18 +40,16 @@ async def check_if_need_to_skip(db: aiosqlite.Connection) -> Tuple[bool, str]:
     Возвращает (False, "") - если продолжать можно.
     
     Условия (пример):
-      1. Режим обслуживания? (MAINTENANCE_MODE=1)
-      2. Нет удачного импорта за вчера? (в SyncHistory нет записи import c yesterday)
-      3. В папке /export лежат не забранные файлы? (Сценарий, где logика не позволяет чистить)
-      4. Groups вообще нет (частично проверим тут — или в основном коде)
+      1. Нет удачного импорта за вчера? (в SyncHistory нет записи import c yesterday)
+      2. В папке /export лежат не забранные файлы? (Сценарий, где logика не позволяет чистить)
+      3. Groups вообще нет (частично проверим тут — или в основном коде)
       ... и т.д.
+      
+    MAINTENANCE_MODE больше не останавливает выполнение скрипта полностью,
+    а только блокирует фактические операции ban_chat_member.
     """
 
-    # (1) Maintenance mode
-    if MAINTENANCE_MODE == "1":
-        return (True, "Maintenance mode is ON")
-
-    # (2) Нет удачного импорта за прошедший день
+    # (1) Нет удачного импорта за прошедший день
     # Предположим, мы считаем "удачным" любой import с RecordCount >= 0
     # (или можно искать конкретный FileName != '-skipped' и т.п.)
     yesterday = (datetime.now() - timedelta(days=1)).date().isoformat()

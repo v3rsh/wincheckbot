@@ -15,7 +15,7 @@ from aiogram import Bot
 from dotenv import load_dotenv
 
 load_dotenv()
-from config import logger, API_TOKEN, DB_PATH, EXCLUDED_EMAILS
+from config import logger, API_TOKEN, DB_PATH, EXCLUDED_EMAILS, MAINTENANCE_MODE
 from database import get_emails_by_user_ids, get_group_titles_by_chat_ids, get_user_email 
 
 # Импортируем из need_clean.py
@@ -139,15 +139,23 @@ async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
         group_name = group_titles.get(chat_id, f"Group_{chat_id}")
         for user_id in filtered_users:
             try:
-                await bot.ban_chat_member(chat_id, user_id)
                 user_email = user_emails.get(user_id, "")
-                logger.info(f"[cleaner:new_groups] Удалён user_id={user_id}:{user_email} из нового чата={chat_id}:{group_name}")
+                if MAINTENANCE_MODE == "1":
+                    # Симуляция удаления в режиме отладки
+                    logger.info(f"[cleaner:new_groups] [SIMULATION] Удалён user_id={user_id}:{user_email} из нового чата={chat_id}:{group_name}")
+                else:
+                    # Реальное удаление в рабочем режиме
+                    await bot.ban_chat_member(chat_id, user_id)
+                    logger.info(f"[cleaner:new_groups] Удалён user_id={user_id}:{user_email} из нового чата={chat_id}:{group_name}")
                 removed_count += 1
                 if user_id not in banned_users:
                     banned_users.append(user_id)
             except Exception as e:
                 user_email = user_emails.get(user_id, "")
-                logger.warning(f"[cleaner:new_groups] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
+                if MAINTENANCE_MODE == "1":
+                    logger.warning(f"[cleaner:new_groups] [SIMULATION] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
+                else:
+                    logger.warning(f"[cleaner:new_groups] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
 
         # Снимаем пометку New с группы
         await db.execute("""
@@ -162,6 +170,10 @@ async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
 
 async def main():
     logger.info("=== [cleaner.py] Запущен сценарий очистки ===")
+    if MAINTENANCE_MODE == "1":
+        logger.info("🔧 РЕЖИМ ОТЛАДКИ: Все операции ban_chat_member будут симулированы")
+    else:
+        logger.info("⚡ РАБОЧИЙ РЕЖИМ: Будут выполнены реальные операции удаления")
 
     async with aiosqlite.connect(DB_PATH) as db:
         # Проверяем наличие всех user_id из импорта в базе
@@ -251,10 +263,18 @@ async def main():
                 for chat_id in eligible_groups:
                     group_name = group_titles.get(chat_id, f"Group_{chat_id}")
                     try:
-                        await bot.ban_chat_member(chat_id, user_id)
-                        logger.info(f"[cleaner] Удалён user_id={user_id}:{user_email} из чата={chat_id}:{group_name}")
+                        if MAINTENANCE_MODE == "1":
+                            # Симуляция удаления в режиме отладки
+                            logger.info(f"[cleaner] [SIMULATION] Удалён user_id={user_id}:{user_email} из чата={chat_id}:{group_name}")
+                        else:
+                            # Реальное удаление в рабочем режиме
+                            await bot.ban_chat_member(chat_id, user_id)
+                            logger.info(f"[cleaner] Удалён user_id={user_id}:{user_email} из чата={chat_id}:{group_name}")
                     except Exception as e:
-                        logger.warning(f"[cleaner] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
+                        if MAINTENANCE_MODE == "1":
+                            logger.warning(f"[cleaner] [SIMULATION] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
+                        else:
+                            logger.warning(f"[cleaner] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
 
                 # Ставим Banned=TRUE
                 await db.execute("""
@@ -274,12 +294,15 @@ async def main():
             all_banned_users = list(set(regular_banned_users + new_groups_banned_users))
             total_removed = regular_removed_count + new_groups_removed_count
             
+            # Формируем комментарий с указанием режима работы
+            mode_prefix = "[SIMULATION] " if MAINTENANCE_MODE == "1" else ""
+            
             if all_banned_users:
                 banned_emails = await get_emails_by_user_ids(all_banned_users)
                 banned_list = ", ".join(f"{uid}:{banned_emails.get(uid, '')}" for uid in all_banned_users)
-                comment = f"regular:{regular_removed_count}, new_groups:{new_groups_removed_count}; banned: {len(all_banned_users)} ({banned_list})"
+                comment = f"{mode_prefix}regular:{regular_removed_count}, new_groups:{new_groups_removed_count}; banned: {len(all_banned_users)} ({banned_list})"
             else:
-                comment = f"regular:{regular_removed_count}, new_groups:{new_groups_removed_count}"
+                comment = f"{mode_prefix}regular:{regular_removed_count}, new_groups:{new_groups_removed_count}"
             
             # Пишем в SyncHistory общий результат
             await db.execute("""
@@ -292,10 +315,11 @@ async def main():
             logger.exception(f"Неожиданная ошибка в cleaner.py: {e}")
         finally:
             await bot.session.close()
+            mode_text = "симулировано" if MAINTENANCE_MODE == "1" else "выполнено"
             if 'all_banned_users' in locals() and all_banned_users:
-                logger.info(f"Сессия бота закрыта. Удалено всего {total_removed} записей (regular:{regular_removed_count}, new_groups:{new_groups_removed_count}). Забанено пользователей: {len(all_banned_users)}")
+                logger.info(f"Сессия бота закрыта. {mode_text.capitalize()} всего {total_removed} удалений (regular:{regular_removed_count}, new_groups:{new_groups_removed_count}). Забанено пользователей: {len(all_banned_users)}")
             else:
-                logger.info(f"Сессия бота закрыта. Удалено всего записей: 0")
+                logger.info(f"Сессия бота закрыта. {mode_text.capitalize()} всего удалений: 0")
 
 if __name__ == "__main__":
     asyncio.run(main())
