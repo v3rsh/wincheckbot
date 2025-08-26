@@ -47,7 +47,7 @@ async def unban_user(user_id: int, bot: Bot = None):
         unbanned_count = 0
         for (chat_id,) in eligible_groups:
             try:
-                await bot.unban_chat_member(chat_id, user_id)
+                await bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
                 logger.info(f"[unban_user] Пользователь {user_id} разбанен в чате {chat_id}")
                 unbanned_count += 1
             except Exception as e:
