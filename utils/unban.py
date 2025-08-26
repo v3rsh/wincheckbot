@@ -9,7 +9,9 @@ async def unban_user(user_id: int, bot: Bot = None):
     Если да — снимает бан в группах, где у бота есть права.
     Затем проставляет Banned=FALSE.
     """
+    logger.info(f"[unban_user] Начинаем разбан для {user_id}. bot: {bot.token}")
     if bot is None:
+        logger.info(f"bot is None, creating new bot")
         bot = Bot(token=API_TOKEN)
         should_close_session = True
     else:

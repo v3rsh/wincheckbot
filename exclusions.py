@@ -23,12 +23,17 @@ async def process_excluded_users(db, excluded_emails_lower, bot):
     logger.info(f"Проверяем {len(all_users)} пользователей для исключений...")
     
     for user_id, email, approve, banned, was_approved in all_users:
+        logger.info(f"Обрабатываем пользователя {user_id}:{email}")
         if not email:
+            logger.info(f"Пропускаем {user_id} - нет email")
             continue
             
         email_lower = email.strip().lower()
         if email_lower not in excluded_emails_lower:
+            logger.info(f"Пропускаем {user_id} - email не в исключениях")
             continue
+        
+        logger.info(f"Пользователь {user_id} найден в исключениях, статус: approve={approve}, banned={banned}, was_approved={was_approved}")
         
         # Логика обработки по статусам:
         if approve and not banned:
@@ -50,9 +55,14 @@ async def process_excluded_users(db, excluded_emails_lower, bot):
             """, (user_id,))
             
             # Отправляем уведомление о восстановлении
+            logger.info(f"Начинаем отправку уведомления для {user_id}:{email}")
             try:
+                logger.info(f"Создаем ссылку восстановления для {user_id}")
                 invite_markup = await get_restoration_invite_link(bot, COMPANY_CHANNEL_ID)
+                logger.info(f"Ссылка создана для {user_id}, markup: {invite_markup is not None}")
+                
                 if invite_markup:
+                    logger.info(f"Отправляем сообщение пользователю {user_id}")
                     await bot.send_message(
                         chat_id=user_id,
                         text=status_restored,
@@ -143,6 +153,7 @@ async def check_exclusions(bot: Bot):
         logger.info("Фиксируем изменения в базе данных...")
         await db.commit()
         logger.info("Изменения в БД зафиксированы")
+        logger.info("=== Обработка исключений полностью завершена ===")
 
         # Запись в SyncHistory
         total_excluded_processed = restored_count + unbanned_count + approved_count

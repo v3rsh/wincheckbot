@@ -24,6 +24,7 @@ async def main():
     
     # Проверка исключений с использованием созданного экземпляра бота
     await check_exclusions(bot)
+    logger.info("=== check_exclusions завершена, переходим к регистрации хэндлеров ===")
 
     # Регистрация хэндлеров
     dp.include_router(chat_handler)
