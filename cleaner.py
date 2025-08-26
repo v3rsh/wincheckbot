@@ -26,6 +26,21 @@ from utils.need_clean import (
     get_eligible_groups,
 )
 
+async def check_user_membership(bot: Bot, chat_id: int, user_id: int) -> bool:
+    """
+    Проверяет, является ли пользователь членом группы.
+    Возвращает True, если пользователь в группе, False в противном случае.
+    """
+    try:
+        member = await bot.get_chat_member(chat_id, user_id)
+        # Проверяем статус: member, administrator, creator - пользователь в группе
+        # left, kicked - пользователь не в группе
+        return member.status in ['member', 'administrator', 'creator']
+    except Exception as e:
+        # Если не удалось получить информацию, считаем что пользователя нет в группе
+        logger.debug(f"Не удалось проверить членство user_id={user_id} в chat_id={chat_id}: {e}")
+        return False
+
 import asyncio
 import aiosqlite
 from pathlib import Path
@@ -140,6 +155,14 @@ async def clean_new_groups(db: aiosqlite.Connection, bot: Bot):
         for user_id in filtered_users:
             try:
                 user_email = user_emails.get(user_id, "")
+                
+                # Проверяем, является ли пользователь членом группы
+                is_member = await check_user_membership(bot, chat_id, user_id)
+                
+                if not is_member:
+                    logger.debug(f"[cleaner:new_groups] user_id={user_id}:{user_email} не является членом чата={chat_id}:{group_name}, пропускаем")
+                    continue
+                
                 if MAINTENANCE_MODE == "1":
                     # Симуляция удаления в режиме отладки
                     logger.info(f"[cleaner:new_groups] [SIMULATION] Удалён user_id={user_id}:{user_email} из нового чата={chat_id}:{group_name}")
@@ -260,9 +283,18 @@ async def main():
             
             for user_id in filtered_users:
                 user_email = user_emails.get(user_id, "")
+                user_actually_removed_from_groups = False
+                
                 for chat_id in eligible_groups:
                     group_name = group_titles.get(chat_id, f"Group_{chat_id}")
                     try:
+                        # Проверяем, является ли пользователь членом группы
+                        is_member = await check_user_membership(bot, chat_id, user_id)
+                        
+                        if not is_member:
+                            logger.debug(f"[cleaner] user_id={user_id}:{user_email} не является членом чата={chat_id}:{group_name}, пропускаем")
+                            continue
+                        
                         if MAINTENANCE_MODE == "1":
                             # Симуляция удаления в режиме отладки
                             logger.info(f"[cleaner] [SIMULATION] Удалён user_id={user_id}:{user_email} из чата={chat_id}:{group_name}")
@@ -270,20 +302,27 @@ async def main():
                             # Реальное удаление в рабочем режиме
                             await bot.ban_chat_member(chat_id, user_id)
                             logger.info(f"[cleaner] Удалён user_id={user_id}:{user_email} из чата={chat_id}:{group_name}")
+                        
+                        user_actually_removed_from_groups = True
+                        regular_removed_count += 1
+                        
                     except Exception as e:
                         if MAINTENANCE_MODE == "1":
                             logger.warning(f"[cleaner] [SIMULATION] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
                         else:
                             logger.warning(f"[cleaner] Не удалось удалить user_id={user_id}:{user_email} из {chat_id}:{group_name}: {e}")
 
-                # Ставим Banned=TRUE
+                # Ставим Banned=TRUE (независимо от того, был ли пользователь удален из групп)
                 await db.execute("""
                     UPDATE Users
                        SET Banned=TRUE
                      WHERE UserID=?
                 """, (user_id,))
-                regular_removed_count += 1
+                
                 regular_banned_users.append(user_id)
+                
+                if not user_actually_removed_from_groups:
+                    logger.info(f"[cleaner] user_id={user_id}:{user_email} не был членом ни одной из групп, помечен как Banned=TRUE")
 
             await db.commit()
 
