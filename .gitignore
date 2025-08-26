@@ -18,4 +18,6 @@ redis_data/
 analyze_users.py
 check_channel_users.py
 
-scripts/скрипт.bsl
+# Скрипты вспомогательные 
+scripts/
+analyze_users.py

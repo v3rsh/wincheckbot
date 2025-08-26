@@ -108,10 +108,10 @@ async def restore_banned_users(active_user_ids: set[int]) -> list[int]:
     
     async with aiosqlite.connect(DB_PATH) as db:
         # Получаем всех пользователей, которым нужно восстановить доступ
-        # (они есть в списке активных, но у них Approve=FALSE)
+        # (они есть в списке активных, но у них Approve=FALSE или Banned=TRUE)
         cursor = await db.execute("""
             SELECT UserID FROM Users
-            WHERE Approve=FALSE 
+            WHERE (Approve=FALSE OR Banned=TRUE)
               AND UserID IN ({})
         """.format(','.join('?' * len(active_user_ids))), tuple(active_user_ids))
         
@@ -139,3 +139,42 @@ async def restore_banned_users(active_user_ids: set[int]) -> list[int]:
             logger.info("Нет пользователей для восстановления доступа.")
     
     return restored_users
+
+async def unban_excluded_users() -> list[int]:
+    """
+    Разбанивает пользователей из EXCLUDED_EMAILS, которые могли быть забанены
+    между запуском cleaner и import.
+    Возвращает список ID пользователей, которые были разбанены.
+    """
+    unbanned_users = []
+    excluded_emails_lower = [ex.strip().lower() for ex in EXCLUDED_EMAILS if ex.strip()]
+    
+    if not excluded_emails_lower:
+        return unbanned_users
+    
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Получаем всех забаненных пользователей
+        cursor = await db.execute("""
+            SELECT UserID FROM Users WHERE Banned=TRUE
+        """)
+        banned_users = await cursor.fetchall()
+        
+        for (user_id,) in banned_users:
+            plain_email = await get_user_email(user_id)
+            if plain_email:
+                email_lower = plain_email.strip().lower()
+                if email_lower in excluded_emails_lower:
+                    # Разбаниваем исключенного пользователя
+                    await db.execute("""
+                        UPDATE Users 
+                        SET Banned = FALSE, Approve = TRUE 
+                        WHERE UserID = ?
+                    """, (user_id,))
+                    unbanned_users.append(user_id)
+                    logger.info(f"Разбанен исключенный пользователь {user_id}:{plain_email} - Banned=FALSE, Approve=TRUE")
+        
+        if unbanned_users:
+            await db.commit()
+            logger.info(f"Разбанено {len(unbanned_users)} исключенных пользователей.")
+    
+    return unbanned_users

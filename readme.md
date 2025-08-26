@@ -68,7 +68,6 @@ TELEGRAM_API_TOKEN=...           # Токен Telegram-бота
 COMPANY_CHANNEL_ID=...           # ID канала компании
 WORK_MAIL=winline.ru             # Домен рабочей почты
 UNI_EMAIL=...                    # Email для отправки писем
-ENCRYPTION_KEY=...               # HEX-ключ AES (16/24/32 байта)
 DB_PATH=./data/winbot.db         # Путь к базе данных
 MAINTENANCE_MODE=0               # 1 — режим обслуживания
 EXCLUDED_EMAILS=hr@winline.ru,...# Email-исключения через запятую

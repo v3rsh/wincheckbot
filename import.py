@@ -14,7 +14,7 @@ from utils.file_ops import (
     archive_import_file,
     parse_csv_users
 )
-from utils.import_logic import process_unapproved_in_db, restore_banned_users, protect_excluded_users
+from utils.import_logic import process_unapproved_in_db, restore_banned_users, protect_excluded_users, unban_excluded_users
 from utils.notify import notify_newly_fired
 import aiosqlite
 from database import get_user_email, get_emails_by_user_ids
@@ -131,6 +131,17 @@ async def main():
         protected_ids_str = ""
         logger.info("Дополнительная защита исключенных пользователей не требовалась.")
     
+    # 3.3) Дополнительная проверка: разбаниваем пользователей из EXCLUDED_EMAILS, 
+    # которые могли быть забанены между cleaner и import
+    unbanned_excluded = await unban_excluded_users()
+    if unbanned_excluded:
+        unbanned_emails = await get_emails_by_user_ids(unbanned_excluded)
+        unbanned_ids_str = ", ".join(f"{uid}:{unbanned_emails.get(uid, '')}" for uid in unbanned_excluded)
+        logger.info(f"Разбанено {len(unbanned_excluded)} исключенных пользователей: {unbanned_ids_str}")
+    else:
+        unbanned_ids_str = ""
+        logger.info("Дополнительная разблокировка исключенных пользователей не требовалась.")
+    
     # 4) Отправляем уведомления только тем, кому ещё не отправляли
     notified_users = []
     if changed_users:
@@ -155,6 +166,8 @@ async def main():
         comment_parts.append(f"уволено: {len(changed_users)} ({changed_ids_str})")
     if protected_users:
         comment_parts.append(f"защищено: {len(protected_users)} ({protected_ids_str})")
+    if unbanned_excluded:
+        comment_parts.append(f"разбанено: {len(unbanned_excluded)} ({unbanned_ids_str})")
     if notified_users:
         comment_parts.append(f"уведомлено: {len(notified_users)} ({notified_ids_str})")
     

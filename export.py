@@ -4,7 +4,7 @@ export.py
 Запускается раз в сутки в 08:00 (cron).
 1) Выбирает пользователей: Approve=TRUE и Synced=FALSE,
 2) Пропускает, если email в EXCLUDED_EMAILS,
-3) Выгружает (UserID;расшифрованный_email) в ./export/export_YYYYmmDD_HHMMSS.csv,
+3) Выгружает (UserID;email) в ./export/export_YYYYmmDD_HHMMSS.csv,
 4) Ставит Synced=TRUE,
 5) Пишет запись в SyncHistory (или лог).
 """
@@ -65,7 +65,7 @@ async def main():
             writer.writerow(["UserID", "Email"])  # заголовок
 
             for row_id, user_id, enc_email in rows:
-                # Расшифровываем email
+                # Получаем email пользователя
                 plain_email = await get_user_email(user_id)
                 export_email = plain_email.strip().lower()
 

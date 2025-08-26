@@ -3,11 +3,11 @@ BASH_ENV=/etc/profile.d/envvars.sh
 PATH=/usr/local/bin:/usr/bin:/bin
 LOGFILE=/app/logs/cron.log
 
-# Cleaner: запускается за 1 минуту до export, каждые 10 минут
+# Cleaner: запускается в 07:30
 30 7 * * * cd /app && python3 /app/cleaner.py >> $LOGFILE 2>&1
 
-# Export: каждые 10 минут
-00 8 * * * cd /app && python3 /app/export.py >> $LOGFILE 2>&1
+# Export: запускается в 08:05 (с задержкой после cleaner)
+05 8 * * * cd /app && python3 /app/export.py >> $LOGFILE 2>&1
 
 # Import: через 5 минут после export
 00 20 * * * cd /app && python3 /app/import.py >> $LOGFILE 2>&1

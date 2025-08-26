@@ -48,7 +48,7 @@ async def handle_code_input(message: types.Message, state: FSMContext):
         logger.info(f"[code_handler] Пользователь {user_id} ввёл верный код.")
         email = data.get("email")
         
-        # 1) Вызываем нашу функцию для шифрования и записи email
+        # 1) Записываем email в базу данных
         await set_user_email(user_id, email)
         await state.set_state(Verification.verified)
         

@@ -6,7 +6,7 @@ export_all_emails.py
 
 1) Выбирает всех пользователей с непустым Email
 2) Пропускает, если email в EXCLUDED_EMAILS
-3) Выгружает (UserID;расшифрованный_email) в ./export/all_emails_YYYYmmDD_HHMMSS.csv
+3) Выгружает (UserID;email) в ./export/all_emails_YYYYmmDD_HHMMSS.csv
 4) Пишет запись в SyncHistory
 """
 import os
@@ -57,7 +57,7 @@ async def main():
             writer.writerow(["UserID", "Email"])  # Только стандартные колонки
 
             for row_id, user_id, enc_email in rows:
-                # Расшифровываем email
+                # Получаем email пользователя
                 plain_email = await get_user_email(user_id)
                 
                 # Пропускаем, если email в EXCLUDED_EMAILS

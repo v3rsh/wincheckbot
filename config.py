@@ -37,12 +37,11 @@ COMPANY_CHANNEL_ID = (os.getenv("COMPANY_CHANNEL_ID"))
 WORK_MAIL = os.getenv("WORK_MAIL")
 UNI_EMAIL = os.getenv("UNI_EMAIL")
 EXCLUDED_EMAILS = os.getenv("EXCLUDED_EMAILS", "").split(",")
-ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 DB_PATH = os.getenv("DB_PATH")
 MAINTENANCE_MODE=os.getenv("MAINTENANCE_MODE")
 
 # Проверка наличия обязательных переменных
-required_env_vars = ["API_TOKEN", "WORK_MAIL", "UNI_EMAIL", "COMPANY_CHANNEL_ID", "ENCRYPTION_KEY", "DB_PATH", "MAINTENANCE_MODE"]
+required_env_vars = ["API_TOKEN", "WORK_MAIL", "UNI_EMAIL", "COMPANY_CHANNEL_ID", "DB_PATH", "MAINTENANCE_MODE"]
 missing_vars = [var for var in required_env_vars if not globals().get(var)]
 
 if missing_vars:
