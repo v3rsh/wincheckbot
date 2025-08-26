@@ -1,8 +1,7 @@
 import asyncio
 import aiosqlite
 from aiogram import Bot
-from config import logger, DB_PATH, EXCLUDED_EMAILS, WORK_MAIL, API_TOKEN, COMPANY_CHANNEL_ID
-from database import get_user_email
+from config import logger, DB_PATH, EXCLUDED_EMAILS, WORK_MAIL, COMPANY_CHANNEL_ID
 from utils.unban import unban_user
 from combine.reply import get_restoration_invite_link
 from combine.answer import status_restored
@@ -115,7 +114,7 @@ async def process_non_corporate_emails(db):
     
     return unapproved_count
 
-async def check_exclusions():
+async def check_exclusions(bot: Bot):
     logger.info("=== Начало проверки исключений при старте бота ===")
     async with aiosqlite.connect(DB_PATH) as db:
         # Приводим исключения к нижнему регистру для корректного сравнения
@@ -126,28 +125,20 @@ async def check_exclusions():
         else:
             logger.info(f"Список исключений: {excluded_emails_lower}")
 
-        # Создаем бота для отправки сообщений
-        bot = Bot(token=API_TOKEN)
+        # 1. Обрабатываем исключенных пользователей
+        if excluded_emails_lower:
+            restored_count, unbanned_count, approved_count, restored_users = await process_excluded_users(
+                db, excluded_emails_lower, bot
+            )
+        else:
+            restored_count = unbanned_count = approved_count = 0
+            restored_users = []
         
-        try:
-            # 1. Обрабатываем исключенных пользователей
-            if excluded_emails_lower:
-                restored_count, unbanned_count, approved_count, restored_users = await process_excluded_users(
-                    db, excluded_emails_lower, bot
-                )
-            else:
-                restored_count = unbanned_count = approved_count = 0
-                restored_users = []
-            
-            # 2. Обрабатываем некорпоративные email
-            logger.info("Начинаем обработку некорпоративных email...")
-            unapproved_count = await process_non_corporate_emails(db)
-            logger.info(f"Обработка некорпоративных email завершена. Результат: {unapproved_count}")
-            
-        finally:
-            await bot.session.close()
-            logger.info("HTTP сессия бота закрыта")
-
+        # 2. Обрабатываем некорпоративные email
+        logger.info("Начинаем обработку некорпоративных email...")
+        unapproved_count = await process_non_corporate_emails(db)
+        logger.info(f"Обработка некорпоративных email завершена. Результат: {unapproved_count}")
+        
         # Фиксируем изменения в базе
         logger.info("Фиксируем изменения в базе данных...")
         await db.commit()

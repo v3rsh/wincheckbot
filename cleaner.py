@@ -21,7 +21,6 @@ from database import get_emails_by_user_ids, get_group_titles_by_chat_ids, get_u
 # Импортируем из need_clean.py
 from utils.need_clean import (
     check_if_need_to_skip,
-    ensure_comment_column,
     write_skip_history,
     get_eligible_groups,
 )
@@ -204,8 +203,6 @@ async def main():
             logger.error("Очистка прервана.")
             return
         
-        await ensure_comment_column(db)
-
         # Проверяем, нужно ли пропускать cleaner.py
         skip, skip_reason = await check_if_need_to_skip(db)
         if skip:

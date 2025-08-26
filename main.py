@@ -15,13 +15,15 @@ from redis.asyncio import Redis
 async def main():
     logger.info("Запуск бота.")
     await initialize_db()
-    await check_exclusions()
     
-    # Инициализация Redis и бота
+    # Инициализация Redis и бота в самом начале
     redis = Redis(host='redis', port=6379, db=5)
     bot = Bot(token=API_TOKEN)
     storage = RedisStorage(redis=redis, key_builder=DefaultKeyBuilder(prefix="pulse_fsm"))    
     dp = Dispatcher(storage=storage)
+    
+    # Проверка исключений с использованием созданного экземпляра бота
+    await check_exclusions(bot)
 
     # Регистрация хэндлеров
     dp.include_router(chat_handler)
